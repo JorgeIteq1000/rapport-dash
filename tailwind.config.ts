@@ -61,12 +61,33 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				dashboard: {
+					primary: 'hsl(var(--dashboard-primary))',
+					'primary-foreground': 'hsl(var(--dashboard-primary-foreground))',
+					success: 'hsl(var(--dashboard-success))',
+					'success-foreground': 'hsl(var(--dashboard-success-foreground))',
+					warning: 'hsl(var(--dashboard-warning))',
+					'warning-foreground': 'hsl(var(--dashboard-warning-foreground))',
+					info: 'hsl(var(--dashboard-info))',
+					'info-foreground': 'hsl(var(--dashboard-info-foreground))',
+					card: 'hsl(var(--dashboard-card))',
+					'card-border': 'hsl(var(--dashboard-card-border))'
 				}
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
+			},
+			backgroundImage: {
+				'gradient-primary': 'var(--gradient-primary)',
+				'gradient-card': 'var(--gradient-card)',
+				'gradient-success': 'var(--gradient-success)'
+			},
+			boxShadow: {
+				'dashboard': 'var(--shadow-dashboard)',
+				'card': 'var(--shadow-card)'
 			},
 			keyframes: {
 				'accordion-down': {
