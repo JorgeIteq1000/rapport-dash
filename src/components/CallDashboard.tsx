@@ -20,7 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format, addDays, parse, isValid } from "date-fns";
+import { format, parse, isValid } from "date-fns";
 
 interface CallData {
   Data: string;
@@ -44,6 +44,21 @@ interface AggregatedData {
   Vendas: number;
 }
 
+// Função para somar tempos no formato HH:MM:SS
+const sumTimeStrings = (time1: string, time2: string): string => {
+  const [h1 = 0, m1 = 0, s1 = 0] = time1.split(":").map(Number);
+  const [h2 = 0, m2 = 0, s2 = 0] = time2.split(":").map(Number);
+  
+  let totalSeconds = (h1 * 3600 + m1 * 60 + s1) + (h2 * 3600 + m2 * 60 + s2);
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+};
+
+
 export const CallDashboard = () => {
   const [data, setData] = useState<CallData[]>([]);
   const [date, setDate] = useState<DateRange | undefined>({
@@ -66,11 +81,11 @@ export const CallDashboard = () => {
     return data.filter((item) => {
       const itemDate = parseDate(item.Data);
       if (!itemDate) return false;
+      
+      const fromDate = date.from!;
+      const toDate = date.to || date.from;
 
-      if (date.to) {
-        return itemDate >= date.from! && itemDate <= date.to;
-      }
-      return itemDate.toDateString() === date.from!.toDateString();
+      return itemDate >= fromDate && itemDate <= toDate;
     });
   }, [data, date]);
 
@@ -88,85 +103,39 @@ export const CallDashboard = () => {
         };
       }
       const existing = acc[item.Colaborador];
-      existing["Total de Chamadas"] += item["Total de Chamadas"];
-      existing["Chamadas Efetuadas + 60"] += item["Chamadas Efetuadas + 60"];
-      existing["Chamadas Recebidas + 60"] += item["Chamadas Recebidas + 60"];
-      existing["Ligações Menos 60"] += item["Ligações Menos 60"];
-      existing["Conversas em Andamento"] += item["Conversas em Andamento"];
-      existing.Vendas += item.Vendas;
+      existing["Total de Chamadas"] += Number(item["Total de Chamadas"]) || 0;
+      existing["Chamadas Efetuadas + 60"] += Number(item["Chamadas Efetuadas + 60"]) || 0;
+      existing["Chamadas Recebidas + 60"] += Number(item["Chamadas Recebidas + 60"]) || 0;
+      existing["Ligações Menos 60"] += Number(item["Ligações Menos 60"]) || 0;
+      existing["Conversas em Andamento"] += Number(item["Conversas em Andamento"]) || 0;
+      existing.Vendas += Number(item.Vendas) || 0;
 
-      const [h1, m1, s1] = existing["Horas Faladas"]
-        .split(":")
-        .map(Number);
-      const [h2, m2, s2] = item["Horas Faladas"].split(":").map(Number);
-      let totalSeconds = h1 * 3600 + m1 * 60 + s1 + (h2 * 3600 + m2 * 60 + s2);
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = totalSeconds % 60;
-      existing[
-        "Horas Faladas"
-      ] = `${hours}:${minutes}:${seconds}`;
+      existing["Horas Faladas"] = sumTimeStrings(existing["Horas Faladas"], item["Horas Faladas"] || "00:00:00");
 
       return acc;
     }, {} as Record<string, AggregatedData>);
   }, [filteredData]);
-
+  
   const aggregatedMetrics = useMemo(() => {
-    const collaborators = Object.keys(aggregatedDataByCollaborator);
-    if (collaborators.length === 0) return null;
+    const collaboratorsData = Object.values(aggregatedDataByCollaborator);
+    if (collaboratorsData.length === 0) return null;
 
     return {
-      totalCalls: collaborators.reduce(
-        (sum, key) =>
-          sum + aggregatedDataByCollaborator[key]["Total de Chamadas"],
-        0
-      ),
-      totalOutbound60: collaborators.reduce(
-        (sum, key) =>
-          sum + aggregatedDataByCollaborator[key]["Chamadas Efetuadas + 60"],
-        0
-      ),
-      totalInbound60: collaborators.reduce(
-        (sum, key) =>
-          sum + aggregatedDataByCollaborator[key]["Chamadas Recebidas + 60"],
-        0
-      ),
-      totalUnder60: collaborators.reduce(
-        (sum, key) =>
-          sum + aggregatedDataByCollaborator[key]["Ligações Menos 60"],
-        0
-      ),
-      totalOngoing: collaborators.reduce(
-        (sum, key) =>
-          sum + aggregatedDataByCollaborator[key]["Conversas em Andamento"],
-        0
-      ),
-      totalSales: collaborators.reduce(
-        (sum, key) => sum + aggregatedDataByCollaborator[key]["Vendas"],
-        0
-      ),
-      totalCollaborators: collaborators.length,
+      totalCalls: collaboratorsData.reduce((sum, item) => sum + item["Total de Chamadas"], 0),
+      totalOutbound60: collaboratorsData.reduce((sum, item) => sum + item["Chamadas Efetuadas + 60"], 0),
+      totalInbound60: collaboratorsData.reduce((sum, item) => sum + item["Chamadas Recebidas + 60"], 0),
+      totalUnder60: collaboratorsData.reduce((sum, item) => sum + item["Ligações Menos 60"], 0),
+      totalOngoing: collaboratorsData.reduce((sum, item) => sum + item["Conversas em Andamento"], 0),
+      totalSales: collaboratorsData.reduce((sum, item) => sum + item["Vendas"], 0),
+      totalCollaborators: Object.keys(aggregatedDataByCollaborator).length,
     };
   }, [aggregatedDataByCollaborator]);
 
   const calculateTotalTime = () => {
-    const totalSeconds = Object.values(aggregatedDataByCollaborator).reduce(
-      (total, item) => {
-        const [h, m, s] = item["Horas Faladas"].split(":").map(Number);
-        return total + h * 3600 + m * 60 + s;
-      },
-      0
+    return Object.values(aggregatedDataByCollaborator).reduce(
+      (total, item) => sumTimeStrings(total, item["Horas Faladas"]),
+      "00:00:00"
     );
-
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-
-    return `${hours
-      .toString()
-      .padStart(2, "0")}:${minutes
-      .toString()
-      .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -196,7 +165,7 @@ export const CallDashboard = () => {
                   id="date"
                   variant={"outline"}
                   className={cn(
-                    "w-full justify-start text-left font-normal",
+                    "w-full justify-start text-left font-normal md:w-[300px]",
                     !date && "text-muted-foreground"
                   )}
                 >
@@ -204,11 +173,11 @@ export const CallDashboard = () => {
                   {date?.from ? (
                     date.to ? (
                       <>
-                        {format(date.from, "LLL dd, y")} -{" "}
-                        {format(date.to, "LLL dd, y")}
+                        {format(date.from, "dd/MM/y")} -{" "}
+                        {format(date.to, "dd/MM/y")}
                       </>
                     ) : (
-                      format(date.from, "LLL dd, y")
+                      format(date.from, "dd/MM/y")
                     )
                   ) : (
                     <span>Selecione uma data</span>
