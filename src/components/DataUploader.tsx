@@ -22,10 +22,20 @@ interface DataUploaderProps {
 
 export const DataUploader = ({ onDataLoad }: DataUploaderProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   // Carregamento automático quando o componente é montado
   useEffect(() => {
     loadFromGoogleSheets();
+  }, []);
+
+  // Atualização automática a cada 15 minutos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadFromGoogleSheets();
+    }, 15 * 60 * 1000); // 15 minutos em milissegundos
+
+    return () => clearInterval(interval);
   }, []);
 
   const loadFromGoogleSheets = async () => {
@@ -49,6 +59,7 @@ export const DataUploader = ({ onDataLoad }: DataUploaderProps) => {
       const jsonData = csvToJson(csvText);
       
       onDataLoad(jsonData);
+      setLastUpdate(new Date());
       toast.success(`${jsonData.length} registro(s) carregado(s) do Google Sheets!`);
     } catch (error) {
       toast.error("Erro ao carregar dados do Google Sheets. Verifique se a planilha é pública.");
@@ -115,9 +126,14 @@ export const DataUploader = ({ onDataLoad }: DataUploaderProps) => {
         
         <div className="text-sm text-muted-foreground">
           {isLoading ? (
-            <p>Carregando dados da planilha...</p>
+            <p>Sincronizando com o Google Sheets...</p>
           ) : (
-            <p>Dados carregados automaticamente do Google Sheets. Use o botão "Atualizar" para sincronizar.</p>
+            <div className="space-y-1">
+              <p>🔄 Atualização automática a cada 15 minutos</p>
+              {lastUpdate && (
+                <p>Última atualização: {lastUpdate.toLocaleTimeString('pt-BR')}</p>
+              )}
+            </div>
           )}
         </div>
       </div>
