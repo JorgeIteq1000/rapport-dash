@@ -1,3 +1,4 @@
+import { MonthlyGoals } from "./MonthlyGoals"; 
 import { useState, useMemo } from "react";
 import { MetricCard } from "./MetricCard";
 import { DataUploader } from "./DataUploader";
@@ -11,6 +12,8 @@ import {
   TrendingUp,
   Users,
   Calendar as CalendarIcon,
+  Crown,
+  Award,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -44,20 +47,29 @@ interface AggregatedData {
   Vendas: number;
 }
 
+const timeStringToSeconds = (time: string): number => {
+  const [h = 0, m = 0, s = 0] = time.split(":").map(Number);
+  return h * 3600 + m * 60 + s;
+};
+
 // Função para somar tempos no formato HH:MM:SS
 const sumTimeStrings = (time1: string, time2: string): string => {
   const [h1 = 0, m1 = 0, s1 = 0] = time1.split(":").map(Number);
   const [h2 = 0, m2 = 0, s2 = 0] = time2.split(":").map(Number);
-  
-  let totalSeconds = (h1 * 3600 + m1 * 60 + s1) + (h2 * 3600 + m2 * 60 + s2);
+
+  let totalSeconds =
+    h1 * 3600 + m1 * 60 + s1 + (h2 * 3600 + m2 * 60 + s2);
 
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
-  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  return `${hours
+    .toString()
+    .padStart(2, "0")}:${minutes
+    .toString()
+    .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 };
-
 
 export const CallDashboard = () => {
   const [data, setData] = useState<CallData[]>([]);
@@ -81,7 +93,7 @@ export const CallDashboard = () => {
     return data.filter((item) => {
       const itemDate = parseDate(item.Data);
       if (!itemDate) return false;
-      
+
       const fromDate = date.from!;
       const toDate = date.to || date.from;
 
@@ -90,7 +102,7 @@ export const CallDashboard = () => {
   }, [data, date]);
 
   const aggregatedDataByCollaborator = useMemo(() => {
-    return filteredData.reduce((acc, item) => {
+    const aggregated = filteredData.reduce((acc, item) => {
       if (!acc[item.Colaborador]) {
         acc[item.Colaborador] = {
           "Total de Chamadas": 0,
@@ -104,38 +116,97 @@ export const CallDashboard = () => {
       }
       const existing = acc[item.Colaborador];
       existing["Total de Chamadas"] += Number(item["Total de Chamadas"]) || 0;
-      existing["Chamadas Efetuadas + 60"] += Number(item["Chamadas Efetuadas + 60"]) || 0;
-      existing["Chamadas Recebidas + 60"] += Number(item["Chamadas Recebidas + 60"]) || 0;
+      existing["Chamadas Efetuadas + 60"] +=
+        Number(item["Chamadas Efetuadas + 60"]) || 0;
+      existing["Chamadas Recebidas + 60"] +=
+        Number(item["Chamadas Recebidas + 60"]) || 0;
       existing["Ligações Menos 60"] += Number(item["Ligações Menos 60"]) || 0;
-      existing["Conversas em Andamento"] += Number(item["Conversas em Andamento"]) || 0;
+      existing["Conversas em Andamento"] +=
+        Number(item["Conversas em Andamento"]) || 0;
       existing.Vendas += Number(item.Vendas) || 0;
 
-      existing["Horas Faladas"] = sumTimeStrings(existing["Horas Faladas"], item["Horas Faladas"] || "00:00:00");
+      existing["Horas Faladas"] = sumTimeStrings(
+        existing["Horas Faladas"],
+        item["Horas Faladas"] || "00:00:00"
+      );
 
       return acc;
     }, {} as Record<string, AggregatedData>);
+
+    return Object.entries(aggregated).sort(([, a], [, b]) => {
+      if (b.Vendas !== a.Vendas) {
+        return b.Vendas - a.Vendas;
+      }
+      return (
+        timeStringToSeconds(b["Horas Faladas"]) -
+        timeStringToSeconds(a["Horas Faladas"])
+      );
+    });
   }, [filteredData]);
-  
+
+  const top5ByHours = useMemo(() => {
+    return [...aggregatedDataByCollaborator]
+      .sort(([, a], [, b]) => {
+        return (
+          timeStringToSeconds(b["Horas Faladas"]) -
+          timeStringToSeconds(a["Horas Faladas"])
+        );
+      })
+      .slice(0, 5);
+  }, [aggregatedDataByCollaborator]);
+
+  const top5ByOngoing = useMemo(() => {
+    return [...aggregatedDataByCollaborator]
+      .sort(([, a], [, b]) => {
+        return b["Conversas em Andamento"] - a["Conversas em Andamento"];
+      })
+      .slice(0, 5);
+  }, [aggregatedDataByCollaborator]);
+
   const aggregatedMetrics = useMemo(() => {
-    const collaboratorsData = Object.values(aggregatedDataByCollaborator);
-    if (collaboratorsData.length === 0) return null;
+    if (aggregatedDataByCollaborator.length === 0) return null;
+
+    const collaboratorsData = aggregatedDataByCollaborator.map(
+      ([, data]) => data
+    );
 
     return {
-      totalCalls: collaboratorsData.reduce((sum, item) => sum + item["Total de Chamadas"], 0),
-      totalOutbound60: collaboratorsData.reduce((sum, item) => sum + item["Chamadas Efetuadas + 60"], 0),
-      totalInbound60: collaboratorsData.reduce((sum, item) => sum + item["Chamadas Recebidas + 60"], 0),
-      totalUnder60: collaboratorsData.reduce((sum, item) => sum + item["Ligações Menos 60"], 0),
-      totalOngoing: collaboratorsData.reduce((sum, item) => sum + item["Conversas em Andamento"], 0),
-      totalSales: collaboratorsData.reduce((sum, item) => sum + item["Vendas"], 0),
-      totalCollaborators: Object.keys(aggregatedDataByCollaborator).length,
+      totalCalls: collaboratorsData.reduce(
+        (sum, item) => sum + item["Total de Chamadas"],
+        0
+      ),
+      totalOutbound60: collaboratorsData.reduce(
+        (sum, item) => sum + item["Chamadas Efetuadas + 60"],
+        0
+      ),
+      totalInbound60: collaboratorsData.reduce(
+        (sum, item) => sum + item["Chamadas Recebidas + 60"],
+        0
+      ),
+      totalUnder60: collaboratorsData.reduce(
+        (sum, item) => sum + item["Ligações Menos 60"],
+        0
+      ),
+      totalOngoing: collaboratorsData.reduce(
+        (sum, item) => sum + item["Conversas em Andamento"],
+        0
+      ),
+      totalSales: collaboratorsData.reduce((sum, item) => sum + item.Vendas, 0),
+      totalCollaborators: aggregatedDataByCollaborator.length,
     };
   }, [aggregatedDataByCollaborator]);
 
   const calculateTotalTime = () => {
-    return Object.values(aggregatedDataByCollaborator).reduce(
-      (total, item) => sumTimeStrings(total, item["Horas Faladas"]),
-      "00:00:00"
-    );
+    return aggregatedDataByCollaborator
+      .map(([, item]) => item["Horas Faladas"])
+      .reduce((total, time) => sumTimeStrings(total, time), "00:00:00");
+  };
+
+  const getCrown = (index: number) => {
+    if (index === 0) return <Crown className="w-4 h-4 text-yellow-400" />;
+    if (index === 1) return <Crown className="w-4 h-4 text-gray-400" />;
+    if (index === 2) return <Crown className="w-4 h-4 text-yellow-600" />;
+    return null;
   };
 
   return (
@@ -266,8 +337,18 @@ export const CallDashboard = () => {
           </div>
         )}
 
+        {/* Bloco de Metas do Mês */}
+        {aggregatedMetrics && (
+          <MonthlyGoals 
+            currentVendas={aggregatedMetrics.totalSales}
+            currentLigacoes={aggregatedMetrics.totalCalls}
+            currentHorasFaladas={calculateTotalTime()}
+          />
+        )}
+
+
         {/* Individual Data Table */}
-        {Object.keys(aggregatedDataByCollaborator).length > 0 && (
+        {aggregatedDataByCollaborator.length > 0 && (
           <div className="space-y-6">
             <h2 className="text-lg md:text-2xl font-bold flex items-center gap-2 px-2">
               <Users className="w-5 h-5 md:w-6 md:h-6 text-dashboard-primary" />
@@ -306,14 +387,17 @@ export const CallDashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-dashboard-card-border">
-                    {Object.entries(aggregatedDataByCollaborator).map(
-                      ([collaborator, item]) => (
+                    {aggregatedDataByCollaborator.map(
+                      ([collaborator, item], index) => (
                         <tr
                           key={collaborator}
                           className="hover:bg-dashboard-primary/5 transition-colors"
                         >
                           <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-foreground">
-                            {collaborator}
+                            <div className="flex items-center gap-2">
+                              {getCrown(index)}
+                              {collaborator}
+                            </div>
                           </td>
                           <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-foreground">
                             {item["Total de Chamadas"]}
@@ -345,6 +429,105 @@ export const CallDashboard = () => {
             </div>
           </div>
         )}
+
+        {/* Bottom Section with two columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Top 5 by Hours Spoken Table */}
+          {top5ByHours.length > 0 && (
+            <div className="space-y-6">
+              <h2 className="text-lg md:text-2xl font-bold flex items-center gap-2 px-2">
+                <Award className="w-5 h-5 md:w-6 md:h-6 text-dashboard-primary" />
+                Top 5 - Horas Faladas
+              </h2>
+
+              <div className="bg-dashboard-card border border-dashboard-card-border rounded-lg shadow-card overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-dashboard-primary/10">
+                      <tr>
+                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                          #
+                        </th>
+                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                          Colaborador
+                        </th>
+                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                          Horas Faladas
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-dashboard-card-border">
+                      {top5ByHours.map(([collaborator, item], index) => (
+                        <tr
+                          key={collaborator}
+                          className="hover:bg-dashboard-primary/5 transition-colors"
+                        >
+                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-foreground">
+                            {index + 1}
+                          </td>
+                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-foreground">
+                            {collaborator}
+                          </td>
+                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-foreground">
+                            {item["Horas Faladas"]}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Top 5 by Ongoing Conversations Table */}
+          {top5ByOngoing.length > 0 && (
+            <div className="space-y-6">
+              <h2 className="text-lg md:text-2xl font-bold flex items-center gap-2 px-2">
+                <MessageSquare className="w-5 h-5 md:w-6 md:h-6 text-dashboard-primary" />
+                Top 5 - Conversas em Andamento
+              </h2>
+
+              <div className="bg-dashboard-card border border-dashboard-card-border rounded-lg shadow-card overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-dashboard-primary/10">
+                      <tr>
+                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                          #
+                        </th>
+                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                          Colaborador
+                        </th>
+                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                          Em Andamento
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-dashboard-card-border">
+                      {top5ByOngoing.map(([collaborator, item], index) => (
+                        <tr
+                          key={collaborator}
+                          className="hover:bg-dashboard-primary/5 transition-colors"
+                        >
+                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-foreground">
+                            {index + 1}
+                          </td>
+                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-foreground">
+                            {collaborator}
+                          </td>
+                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-dashboard-info">
+                            {item["Conversas em Andamento"]}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
