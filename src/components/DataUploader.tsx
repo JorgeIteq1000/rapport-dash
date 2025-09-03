@@ -70,6 +70,69 @@ export const DataUploader = ({ onDataLoad }: DataUploaderProps) => {
     }
   };
 
+  const loadFromGoogleSheets = async () => {
+    setIsLoading(true);
+    try {
+      // ID da sua planilha extraído do link
+      const spreadsheetId = '1iplPuPAD2rYDVdon4DWJhfrENiEKvCqU94N5ZArfImM';
+      
+      // URL para exportar como CSV
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=0`;
+      
+      const response = await fetch(csvUrl, {
+        mode: 'cors'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao acessar a planilha');
+      }
+      
+      const csvText = await response.text();
+      const jsonData = csvToJson(csvText);
+      
+      onDataLoad(jsonData);
+      toast.success(`${jsonData.length} registro(s) carregado(s) do Google Sheets!`);
+    } catch (error) {
+      toast.error("Erro ao carregar dados do Google Sheets. Verifique se a planilha é pública.");
+      console.error("Erro:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const csvToJson = (csv: string): CallData[] => {
+    const lines = csv.split('\n').filter(line => line.trim());
+    if (lines.length < 2) return [];
+    
+    const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+    const jsonArray: CallData[] = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.replace(/"/g, '').trim());
+      
+      if (values.length >= headers.length) {
+        const obj: any = {};
+        headers.forEach((header, index) => {
+          let value: any = values[index];
+          
+          // Converter números
+          if (!isNaN(Number(value)) && value !== '') {
+            value = Number(value);
+          }
+          
+          obj[header] = value;
+        });
+        
+        // Verificar se tem os campos obrigatórios
+        if (obj["Data"] && obj["Colaborador"] && obj["Total de Chamadas"] !== undefined) {
+          jsonArray.push(obj as CallData);
+        }
+      }
+    }
+    
+    return jsonArray;
+  };
+
   const loadSampleData = () => {
     const sampleData = `[
   {
@@ -108,6 +171,17 @@ export const DataUploader = ({ onDataLoad }: DataUploaderProps) => {
         
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-3">
+            <Button
+              type="button"
+              variant="default"
+              className="w-full bg-dashboard-primary hover:bg-dashboard-primary/90"
+              onClick={loadFromGoogleSheets}
+              disabled={isLoading}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              {isLoading ? "Carregando..." : "Carregar do Google Sheets"}
+            </Button>
+            
             <label className="block">
               <input
                 type="file"
