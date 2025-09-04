@@ -1,4 +1,3 @@
-import { MonthlyGoals } from "./MonthlyGoals"; 
 import { useState, useMemo } from "react";
 import { MetricCard } from "./MetricCard";
 import { DataUploader } from "./DataUploader";
@@ -24,6 +23,10 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format, parse, isValid } from "date-fns";
+import { MonthlyGoals } from "./MonthlyGoals";
+import { TrendsChart } from "./TrendsChart";
+import { Achievements } from "./Achievements";
+import { JarvisInsights } from "./JarvisInsights";
 
 interface CallData {
   Data: string;
@@ -52,7 +55,6 @@ const timeStringToSeconds = (time: string): number => {
   return h * 3600 + m * 60 + s;
 };
 
-// Função para somar tempos no formato HH:MM:SS
 const sumTimeStrings = (time1: string, time2: string): string => {
   const [h1 = 0, m1 = 0, s1 = 0] = time1.split(":").map(Number);
   const [h2 = 0, m2 = 0, s2 = 0] = time2.split(":").map(Number);
@@ -268,6 +270,20 @@ export const CallDashboard = () => {
             </Popover>
           </div>
         </div>
+        
+        {/* JARVIS INSIGHTS */}
+        {aggregatedMetrics && (
+            <JarvisInsights 
+                aggregatedData={aggregatedDataByCollaborator}
+                totalMetrics={{
+                    totalSales: aggregatedMetrics.totalSales,
+                    totalCalls: aggregatedMetrics.totalCalls,
+                    totalOutbound60: aggregatedMetrics.totalOutbound60,
+                    totalInbound60: aggregatedMetrics.totalInbound60,
+                    totalHorasFaladas: calculateTotalTime()
+                }}
+            />
+        )}
 
         {/* Metrics Grid */}
         {aggregatedMetrics && (
@@ -276,7 +292,6 @@ export const CallDashboard = () => {
               <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-dashboard-primary" />
               Métricas Consolidadas
             </h2>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               <MetricCard
                 title="Colaboradores"
@@ -284,14 +299,12 @@ export const CallDashboard = () => {
                 icon={<Users className="w-6 h-6" />}
                 variant="info"
               />
-
               <MetricCard
                 title="Total de Chamadas"
                 value={aggregatedMetrics.totalCalls}
                 icon={<Phone className="w-6 h-6" />}
                 variant="default"
               />
-
               <MetricCard
                 title="Chamadas Efetuadas +60s"
                 value={aggregatedMetrics.totalOutbound60}
@@ -305,7 +318,6 @@ export const CallDashboard = () => {
                 variant="success"
               />
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               <MetricCard
                 title="Ligações -60s"
@@ -313,14 +325,12 @@ export const CallDashboard = () => {
                 icon={<Clock className="w-6 h-6" />}
                 variant="warning"
               />
-
               <MetricCard
                 title="Horas Faladas"
                 value={calculateTotalTime()}
                 icon={<Clock className="w-6 h-6" />}
                 variant="info"
               />
-
               <MetricCard
                 title="Conversas em Andamento"
                 value={aggregatedMetrics.totalOngoing}
@@ -339,107 +349,111 @@ export const CallDashboard = () => {
 
         {/* Bloco de Metas do Mês */}
         {aggregatedMetrics && (
-          <MonthlyGoals 
+          <MonthlyGoals
             currentVendas={aggregatedMetrics.totalSales}
             currentLigacoes={aggregatedMetrics.totalCalls}
             currentHorasFaladas={calculateTotalTime()}
           />
         )}
+        
+        {/* Seção de Gráficos e Destaques */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <TrendsChart data={filteredData} dateRange={date || {from: new Date(), to: new Date()}} />
+            <Achievements data={aggregatedDataByCollaborator} />
+        </div>
 
-
-        {/* Individual Data Table */}
+        {/* Tabela Principal de Dados Individuais */}
         {aggregatedDataByCollaborator.length > 0 && (
           <div className="space-y-6">
             <h2 className="text-lg md:text-2xl font-bold flex items-center gap-2 px-2">
               <Users className="w-5 h-5 md:w-6 md:h-6 text-dashboard-primary" />
-              Dados Individuais
+              Dados Individuais por Vendas
             </h2>
 
             <div className="bg-dashboard-card border border-dashboard-card-border rounded-lg shadow-card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-dashboard-primary/10">
-                    <tr>
-                      <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
-                        Colaborador
-                      </th>
-                      <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
-                        Total Chamadas
-                      </th>
-                      <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
-                        Efetuadas +60
-                      </th>
-                      <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
-                        Recebidas +60
-                      </th>
-                      <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
-                        Menos 60
-                      </th>
-                      <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
-                        Horas Faladas
-                      </th>
-                      <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
-                        Em Andamento
-                      </th>
-                      <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
-                        Vendas
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-dashboard-card-border">
-                    {aggregatedDataByCollaborator.map(
-                      ([collaborator, item], index) => (
-                        <tr
-                          key={collaborator}
-                          className="hover:bg-dashboard-primary/5 transition-colors"
-                        >
-                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-foreground">
-                            <div className="flex items-center gap-2">
-                              {getCrown(index)}
-                              {collaborator}
-                            </div>
-                          </td>
-                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-foreground">
-                            {item["Total de Chamadas"]}
-                          </td>
-                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-dashboard-success">
-                            {item["Chamadas Efetuadas + 60"]}
-                          </td>
-                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-dashboard-success">
-                            {item["Chamadas Recebidas + 60"]}
-                          </td>
-                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-dashboard-warning">
-                            {item["Ligações Menos 60"]}
-                          </td>
-                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-foreground">
-                            {item["Horas Faladas"]}
-                          </td>
-                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-dashboard-info">
-                            {item["Conversas em Andamento"]}
-                          </td>
-                          <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-semibold text-dashboard-success">
-                            {item.Vendas}
-                          </td>
-                        </tr>
-                      )
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-dashboard-primary/10">
+                            <tr>
+                            <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                                Colaborador
+                            </th>
+                             <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                                Vendas
+                            </th>
+                             <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                                Horas Faladas
+                            </th>
+                            <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                                Total Chamadas
+                            </th>
+                            <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                                Efetuadas +60
+                            </th>
+                            <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                                Recebidas +60
+                            </th>
+                            <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                                Menos 60
+                            </th>
+                            <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                                Em Andamento
+                            </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-dashboard-card-border">
+                            {aggregatedDataByCollaborator.map(
+                            ([collaborator, item], index) => (
+                                <tr
+                                key={collaborator}
+                                className="hover:bg-dashboard-primary/5 transition-colors"
+                                >
+                                <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-foreground">
+                                    <div className="flex items-center gap-2">
+                                    {getCrown(index)}
+                                    {collaborator}
+                                    </div>
+                                </td>
+                                 <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-semibold text-dashboard-success">
+                                    {item.Vendas}
+                                </td>
+                                <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-foreground">
+                                    {item["Horas Faladas"]}
+                                </td>
+                                <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-foreground">
+                                    {item["Total de Chamadas"]}
+                                </td>
+                                <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-dashboard-success">
+                                    {item["Chamadas Efetuadas + 60"]}
+                                </td>
+                                <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-dashboard-success">
+                                    {item["Chamadas Recebidas + 60"]}
+                                </td>
+                                <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-dashboard-warning">
+                                    {item["Ligações Menos 60"]}
+                                </td>
+                                <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-dashboard-info">
+                                    {item["Conversas em Andamento"]}
+                                </td>
+                                </tr>
+                            )
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
           </div>
         )}
 
-        {/* Bottom Section with two columns */}
+        {/* Seção Inferior com Rankings */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top 5 by Hours Spoken Table */}
+          {/* Top 5 por Horas Faladas */}
           {top5ByHours.length > 0 && (
             <div className="space-y-6">
               <h2 className="text-lg md:text-2xl font-bold flex items-center gap-2 px-2">
                 <Award className="w-5 h-5 md:w-6 md:h-6 text-dashboard-primary" />
                 Top 5 - Horas Faladas
               </h2>
-
               <div className="bg-dashboard-card border border-dashboard-card-border rounded-lg shadow-card overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -480,7 +494,7 @@ export const CallDashboard = () => {
             </div>
           )}
 
-          {/* Top 5 by Ongoing Conversations Table */}
+          {/* Top 5 por Conversas em Andamento */}
           {top5ByOngoing.length > 0 && (
             <div className="space-y-6">
               <h2 className="text-lg md:text-2xl font-bold flex items-center gap-2 px-2">
@@ -532,3 +546,4 @@ export const CallDashboard = () => {
     </div>
   );
 };
+

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
-import { Target, TrendingUp, Clock, Info, Phone } from "lucide-react";
-import { differenceInWeeks, parse, isValid, format } from "date-fns";
+import { Target, TrendingUp, Clock, Info, Phone, AlertCircle, CheckCircle, TrendingDown } from "lucide-react";
+import { differenceInDays, parse, isValid, startOfMonth, getDaysInMonth, format } from "date-fns";
 import {
   Tooltip,
   TooltipContent,
@@ -26,6 +26,31 @@ interface Goals {
   endDate: Date | null;
 }
 
+// Interface para os dados de projeção
+interface Projection {
+    value: number | string;
+    percentage: number;
+    status: 'on-track' | 'at-risk' | 'off-track';
+}
+
+const timeStringToSeconds = (timeStr: string): number => {
+    const [h, m, s] = (timeStr || "0:0:0").split(":").map(Number);
+    return h * 3600 + m * 60 + s;
+};
+
+const secondsToHoursString = (totalSeconds: number, format: 'full' | 'short' = 'short') => {
+    if (totalSeconds < 0) totalSeconds = 0;
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.round(totalSeconds % 60);
+
+    if (format === 'full') {
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+    return `${hours}h`;
+};
+
+
 // ===== COMPONENTE INTERNO PARA A BARRA DE PROGRESSO FLUIDA =====
 const FluidProgressBar = ({
   value,
@@ -45,7 +70,6 @@ const FluidProgressBar = ({
         className="h-full rounded-full transition-all duration-500 relative"
         style={{ width: `${percentage}%`, backgroundColor: color }}
       >
-        {/* Efeito de onda */}
         <div className="absolute inset-0 z-0">
           <div className="wave-bg" />
           <div className="wave-fluid" />
@@ -69,11 +93,10 @@ export const MonthlyGoals = ({
 
   useEffect(() => {
     const fetchGoals = async () => {
-      console.log("LOG: Buscando dados de metas...");
       setIsLoading(true);
       try {
         const spreadsheetId = "1iplPuPAD2rYDVdon4DWJhfrENiEKvCqU94N5ZArfImM";
-        const gid = "729091308"; // Seu GID já inserido
+        const gid = "729091308";
 
         const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${gid}`;
         const response = await fetch(csvUrl);
@@ -84,88 +107,93 @@ export const MonthlyGoals = ({
 
         const csvText = await response.text();
         const lines = csvText.split("\n").map((l) => l.split(","));
-
         const goalsData: Record<string, string> = {};
         lines.forEach(([key, value]) => {
-          if (key && value) {
-            goalsData[key.trim()] = value.trim();
-          }
+          if (key && value) goalsData[key.trim()] = value.trim();
         });
 
-        const parsedDate = parse(
-          goalsData.data_final,
-          "dd/MM/yyyy",
-          new Date()
-        );
-
-        const timeStringToSeconds = (timeStr: string) => {
-          const [h, m, s] = (timeStr || "0:0:0").split(":").map(Number);
-          return h * 3600 + m * 60 + s;
-        };
-
+        const parsedDate = parse(goalsData.data_final, "dd/MM/yyyy", new Date());
         setGoals({
           vendas: Number(goalsData.meta_vendas) || 0,
           ligacoes: Number(goalsData.meta_ligacoes) || 0,
           horas: timeStringToSeconds(goalsData.meta_horas || "0"),
           endDate: isValid(parsedDate) ? parsedDate : null,
         });
-
-        console.log("LOG: Metas carregadas com sucesso!", goalsData);
       } catch (error) {
         console.error("LOG: Erro ao buscar metas:", error);
-        toast.error(
-          "Não foi possível carregar as metas. Verifique o GID e se a aba está publicada."
-        );
+        toast.error("Não foi possível carregar as metas. Verifique o GID e se a aba está publicada.");
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchGoals();
   }, []);
 
-  const timeStringToSeconds = (timeStr: string) => {
-    const [h, m, s] = (timeStr || "0:0:0").split(":").map(Number);
-    return h * 3600 + m * 60 + s;
-  };
-
-  const secondsToHoursString = (totalSeconds: number) => {
-    if (totalSeconds < 0) totalSeconds = 0;
-    const hours = Math.floor(totalSeconds / 3600);
-    return `${hours}h`;
-  };
-
-  const weeklyPace = useMemo(() => {
+  const projection = useMemo((): { vendas: Projection; ligacoes: Projection; horas: Projection } | null => {
     if (!goals || !goals.endDate) return null;
 
-    const weeksLeft = Math.max(
-      differenceInWeeks(goals.endDate, new Date()),
-      1
-    );
+    const today = new Date();
+    const startDate = startOfMonth(goals.endDate);
+    const totalDaysInMonth = getDaysInMonth(goals.endDate);
+    const daysPassed = differenceInDays(today, startDate) + 1;
 
-    const remainingVendas = goals.vendas - currentVendas;
-    const remainingLigacoes = goals.ligacoes - currentLigacoes;
-    const remainingHoras =
-      goals.horas - timeStringToSeconds(currentHorasFaladas);
+    if (daysPassed <= 0 || daysPassed > totalDaysInMonth) {
+        // Se o mês ainda não começou ou já terminou, não calcula a projeção
+        return {
+            vendas: { value: currentVendas, percentage: (currentVendas / goals.vendas) * 100, status: 'on-track' },
+            ligacoes: { value: currentLigacoes, percentage: (currentLigacoes / goals.ligacoes) * 100, status: 'on-track' },
+            horas: { value: secondsToHoursString(timeStringToSeconds(currentHorasFaladas), 'short'), percentage: (timeStringToSeconds(currentHorasFaladas) / goals.horas) * 100, status: 'on-track' },
+        };
+    }
+
+    const dailyPace = {
+        vendas: currentVendas / daysPassed,
+        ligacoes: currentLigacoes / daysPassed,
+        horas: timeStringToSeconds(currentHorasFaladas) / daysPassed,
+    };
+    
+    const projected = {
+        vendas: Math.round(dailyPace.vendas * totalDaysInMonth),
+        ligacoes: Math.round(dailyPace.ligacoes * totalDaysInMonth),
+        horas: dailyPace.horas * totalDaysInMonth,
+    };
+
+    const getStatus = (proj: number, goal: number): ('on-track' | 'at-risk' | 'off-track') => {
+        const percentage = goal > 0 ? proj / goal : 1;
+        if (percentage >= 1) return 'on-track';
+        if (percentage >= 0.9) return 'at-risk';
+        return 'off-track';
+    };
 
     return {
-      vendas:
-        remainingVendas > 0 ? (remainingVendas / weeksLeft).toFixed(1) : 0,
-      ligacoes:
-        remainingLigacoes > 0 ? (remainingLigacoes / weeksLeft).toFixed(1) : 0,
-      horas:
-        remainingHoras > 0
-          ? secondsToHoursString(remainingHoras / weeksLeft)
-          : "0h",
+        vendas: { value: projected.vendas, percentage: (projected.vendas / goals.vendas) * 100, status: getStatus(projected.vendas, goals.vendas) },
+        ligacoes: { value: projected.ligacoes, percentage: (projected.ligacoes / goals.ligacoes) * 100, status: getStatus(projected.ligacoes, goals.ligacoes) },
+        horas: { value: secondsToHoursString(projected.horas, 'short'), percentage: (projected.horas / goals.horas) * 100, status: getStatus(projected.horas, goals.horas) },
     };
   }, [goals, currentVendas, currentLigacoes, currentHorasFaladas]);
+
+  const ProjectionStatus = ({ status, value, percentage }: Projection) => {
+    const statusConfig = {
+        'on-track': { icon: <CheckCircle className="w-4 h-4" />, color: 'text-dashboard-success' },
+        'at-risk': { icon: <AlertCircle className="w-4 h-4" />, color: 'text-dashboard-warning' },
+        'off-track': { icon: <TrendingDown className="w-4 h-4" />, color: 'text-destructive' },
+    };
+    const { icon, color } = statusConfig[status];
+
+    return (
+        <div className={cn("flex items-center gap-2 text-xs font-semibold", color)}>
+            {icon}
+            <span>{value} <span className="text-muted-foreground font-normal">({percentage.toFixed(0)}%)</span></span>
+        </div>
+    )
+  }
 
   if (isLoading) {
     return <div>Carregando metas...</div>;
   }
 
   if (!goals) {
-    return null; // ou alguma mensagem de erro
+    return null;
   }
 
   return (
@@ -216,119 +244,75 @@ export const MonthlyGoals = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Vendas */}
         <Card className="p-4 space-y-3 bg-dashboard-card border-dashboard-card-border">
-          <div className="flex justify-between items-center">
-            <h3 className="font-semibold flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-dashboard-success" />
-              Vendas
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Meta: {goals.vendas}
-            </span>
-          </div>
-          <FluidProgressBar value={currentVendas} goal={goals.vendas} />
-          <div className="text-xs text-muted-foreground flex items-center justify-between">
-            <span>
-              Restam:{" "}
-              <span className="font-bold text-foreground">
-                {Math.max(goals.vendas - currentVendas, 0)}
-              </span>
-            </span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="w-3.5 h-3.5 cursor-pointer" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Ritmo semanal necessário para bater a meta</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <span>
-              Ritmo:{" "}
-              <span className="font-bold text-foreground">
-                {weeklyPace?.vendas}/sem
-              </span>
-            </span>
-          </div>
+            <div className="flex justify-between items-center">
+                <h3 className="font-semibold flex items-center gap-2"><TrendingUp className="w-4 h-4 text-dashboard-success"/>Vendas</h3>
+                <span className="text-xs text-muted-foreground">Meta: {goals.vendas}</span>
+            </div>
+            <FluidProgressBar value={currentVendas} goal={goals.vendas} />
+            <div className="text-xs text-muted-foreground flex items-center justify-between">
+                <span>Restam: <span className="font-bold text-foreground">{Math.max(goals.vendas - currentVendas, 0)}</span></span>
+                 <div className="flex items-center gap-2">
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="font-semibold cursor-help">Projeção:</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                            <p>Estimativa de resultado no final do mês com base no ritmo atual.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    {projection && <ProjectionStatus {...projection.vendas}/>}
+                </div>
+            </div>
         </Card>
         {/* Ligações */}
         <Card className="p-4 space-y-3 bg-dashboard-card border-dashboard-card-border">
-          <div className="flex justify-between items-center">
-            <h3 className="font-semibold flex items-center gap-2">
-              <Phone className="w-4 h-4 text-dashboard-primary" />
-              Ligações
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Meta: {goals.ligacoes}
-            </span>
-          </div>
-          <FluidProgressBar value={currentLigacoes} goal={goals.ligacoes} />
-          <div className="text-xs text-muted-foreground flex items-center justify-between">
-            <span>
-              Restam:{" "}
-              <span className="font-bold text-foreground">
-                {Math.max(goals.ligacoes - currentLigacoes, 0)}
-              </span>
-            </span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="w-3.5 h-3.5 cursor-pointer" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Ritmo semanal necessário para bater a meta</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <span>
-              Ritmo:{" "}
-              <span className="font-bold text-foreground">
-                {weeklyPace?.ligacoes}/sem
-              </span>
-            </span>
-          </div>
+            <div className="flex justify-between items-center">
+                <h3 className="font-semibold flex items-center gap-2"><Phone className="w-4 h-4 text-dashboard-primary"/>Ligações</h3>
+                <span className="text-xs text-muted-foreground">Meta: {goals.ligacoes}</span>
+            </div>
+            <FluidProgressBar value={currentLigacoes} goal={goals.ligacoes} />
+             <div className="text-xs text-muted-foreground flex items-center justify-between">
+                <span>Restam: <span className="font-bold text-foreground">{Math.max(goals.ligacoes - currentLigacoes, 0)}</span></span>
+                 <div className="flex items-center gap-2">
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="font-semibold cursor-help">Projeção:</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                            <p>Estimativa de resultado no final do mês com base no ritmo atual.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    {projection && <ProjectionStatus {...projection.ligacoes}/>}
+                </div>
+            </div>
         </Card>
         {/* Horas Faladas */}
         <Card className="p-4 space-y-3 bg-dashboard-card border-dashboard-card-border">
-          <div className="flex justify-between items-center">
-            <h3 className="font-semibold flex items-center gap-2">
-              <Clock className="w-4 h-4 text-dashboard-info" />
-              Horas Faladas
-            </h3>
-            <span className="text-xs text-muted-foreground">
-              Meta: {secondsToHoursString(goals.horas)}
-            </span>
-          </div>
-          <FluidProgressBar
-            value={timeStringToSeconds(currentHorasFaladas)}
-            goal={goals.horas}
-          />
-          <div className="text-xs text-muted-foreground flex items-center justify-between">
-            <span>
-              Restam:{" "}
-              <span className="font-bold text-foreground">
-                {secondsToHoursString(
-                  goals.horas - timeStringToSeconds(currentHorasFaladas)
-                )}
-              </span>
-            </span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="w-3.5 h-3.5 cursor-pointer" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Ritmo semanal necessário para bater a meta</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <span>
-              Ritmo:{" "}
-              <span className="font-bold text-foreground">
-                {weeklyPace?.horas}/sem
-              </span>
-            </span>
-          </div>
+            <div className="flex justify-between items-center">
+                <h3 className="font-semibold flex items-center gap-2"><Clock className="w-4 h-4 text-dashboard-info"/>Horas Faladas</h3>
+                <span className="text-xs text-muted-foreground">Meta: {secondsToHoursString(goals.horas, 'short')}</span>
+            </div>
+            <FluidProgressBar value={timeStringToSeconds(currentHorasFaladas)} goal={goals.horas} />
+            <div className="text-xs text-muted-foreground flex items-center justify-between">
+                <span>Restam: <span className="font-bold text-foreground">{secondsToHoursString(goals.horas - timeStringToSeconds(currentHorasFaladas), 'short')}</span></span>
+                 <div className="flex items-center gap-2">
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="font-semibold cursor-help">Projeção:</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                            <p>Estimativa de resultado no final do mês com base no ritmo atual.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    {projection && <ProjectionStatus {...projection.horas}/>}
+                </div>
+            </div>
         </Card>
       </div>
     </div>
