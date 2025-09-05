@@ -22,7 +22,7 @@ export function Gamification({ aggregatedData, unlockedAchievements }: Gamificat
     <div className="space-y-6">
       <h2 className="text-lg md:text-2xl font-bold flex items-center gap-2 px-2">
         <Trophy className="w-5 h-5 md:w-6 md:h-6 text-dashboard-primary" />
-        Gamificação
+        Resultados
       </h2>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Leaderboard */}

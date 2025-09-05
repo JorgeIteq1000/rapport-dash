@@ -433,6 +433,8 @@ const aggregatedDataByCollaborator = useMemo(() => {
             currentVendas={aggregatedMetrics.totalSales}
             currentLigacoes={aggregatedMetrics.totalCalls}
             currentHorasFaladas={calculateTotalTime()}
+            dateRange={date} // <-- ESSA LINHA É ESSENCIAL
+
           />
         )}
         
