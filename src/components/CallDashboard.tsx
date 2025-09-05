@@ -1,3 +1,8 @@
+import { Gamification } from "./Gamification"; // Importe o novo componente
+import { useEffect } from "react";
+import { toast } from "sonner";
+import { GoalSetter, Goal } from "./GoalSetter"; // Nosso novo componente de formulário
+import { IndividualGoals } from "./IndividualGoals"; // Nosso novo componente de display
 import { useState, useMemo } from "react";
 import { MetricCard } from "./MetricCard";
 import { DataUploader } from "./DataUploader";
@@ -27,6 +32,7 @@ import { MonthlyGoals } from "./MonthlyGoals";
 import { TrendsChart } from "./TrendsChart";
 import { Achievements } from "./Achievements";
 import { JarvisInsights } from "./JarvisInsights";
+import { achievementsList } from "@/lib/achievements";
 
 interface CallData {
   Data: string;
@@ -80,11 +86,9 @@ export const CallDashboard = () => {
     to: new Date(),
   });
 
-  const handleDataLoad = (newData: CallData[]) => {
-    setData(newData);
-  };
+  const [unlockedAchievements, setUnlockedAchievements] = useState<Record<string, string[]>>({});
 
-  const filteredData = useMemo(() => {
+const filteredData = useMemo(() => {
     if (!date?.from) return [];
 
     const parseDate = (dateStr: string) => {
@@ -103,7 +107,7 @@ export const CallDashboard = () => {
     });
   }, [data, date]);
 
-  const aggregatedDataByCollaborator = useMemo(() => {
+const aggregatedDataByCollaborator = useMemo(() => {
     const aggregated = filteredData.reduce((acc, item) => {
       if (!acc[item.Colaborador]) {
         acc[item.Colaborador] = {
@@ -145,6 +149,74 @@ export const CallDashboard = () => {
       );
     });
   }, [filteredData]);
+
+
+
+  useEffect(() => {
+    if (aggregatedDataByCollaborator.length === 0) return;
+
+    const newUnlocked: Record<string, string[]> = {};
+    const allData = aggregatedDataByCollaborator;
+
+    allData.forEach(([name, data]) => {
+      newUnlocked[name] = [];
+      achievementsList.forEach(achievement => {
+        if (achievement.condition(data, allData)) {
+          newUnlocked[name].push(achievement.id);
+
+          // Lógica de notificação: a conquista é nova?
+          const wasAlreadyUnlocked = unlockedAchievements[name]?.includes(achievement.id);
+          if (!wasAlreadyUnlocked) {
+            toast.success(`🏆 ${name} desbloqueou: ${achievement.name}!`);
+          }
+        }
+      });
+    });
+
+    setUnlockedAchievements(newUnlocked);
+
+  }, [aggregatedDataByCollaborator]); // Roda quando os dados agregados mudam
+
+  const [goals, setGoals] = useState<Goal[]>([]); // Estado para as metas
+
+  useEffect(() => {
+    // log: Carregando metas do localStorage
+    console.log('Carregando metas individuais do localStorage...');
+    try {
+      const storedGoals = localStorage.getItem('individualGoals');
+      if (storedGoals) {
+        setGoals(JSON.parse(storedGoals));
+      }
+    } catch (error) {
+      console.error("Falha ao carregar metas individuais", error);
+      toast.error("Não foi possível carregar as metas individuais.");
+    }
+  }, []);
+
+  const handleSaveGoal = (newGoal: Goal) => {
+    const updatedGoals = [...goals, newGoal];
+    setGoals(updatedGoals);
+    localStorage.setItem('individualGoals', JSON.stringify(updatedGoals));
+  };
+
+  const handleDeleteGoal = (goalId: string) => {
+    const updatedGoals = goals.filter(g => g.id !== goalId);
+    setGoals(updatedGoals);
+    localStorage.setItem('individualGoals', JSON.stringify(updatedGoals));
+    toast.info("Meta individual removida.");
+  }
+
+  const handleDataLoad = (newData: CallData[]) => {
+    setData(newData);
+  };
+
+  
+
+  
+
+  const collaboratorNames = useMemo(() => {
+    return aggregatedDataByCollaborator.map(([name]) => name);
+  }, [aggregatedDataByCollaborator]);
 
   const top5ByHours = useMemo(() => {
     return [...aggregatedDataByCollaborator]
@@ -271,6 +343,14 @@ export const CallDashboard = () => {
           </div>
         </div>
         
+        <GoalSetter 
+            collaborators={collaboratorNames}
+            onSaveGoal={handleSaveGoal}
+            goals={goals}
+            onDeleteGoal={handleDeleteGoal}
+            aggregatedData={aggregatedDataByCollaborator}
+          />          
+
         {/* JARVIS INSIGHTS */}
         {aggregatedMetrics && (
             <JarvisInsights 
@@ -356,6 +436,13 @@ export const CallDashboard = () => {
           />
         )}
         
+         {aggregatedDataByCollaborator.length > 0 && goals.length > 0 && (
+            <IndividualGoals 
+                aggregatedData={aggregatedDataByCollaborator}
+                goals={goals}
+            />
+        )}
+
         {/* Seção de Gráficos e Destaques */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <TrendsChart data={filteredData} dateRange={date || {from: new Date(), to: new Date()}} />
@@ -443,6 +530,13 @@ export const CallDashboard = () => {
                 </div>
             </div>
           </div>
+        )}
+
+        {aggregatedDataByCollaborator.length > 0 && (
+            <Gamification 
+                aggregatedData={aggregatedDataByCollaborator}
+                unlockedAchievements={unlockedAchievements}
+            />
         )}
 
         {/* Seção Inferior com Rankings */}
