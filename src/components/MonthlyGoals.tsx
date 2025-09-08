@@ -142,6 +142,7 @@ export const MonthlyGoals = ({
   dateRange,
 }: MonthlyGoalsProps) => {
   const [goals, setGoals] = useState<Goals | null>(null);
+  const [goalEndDate, setGoalEndDate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -167,6 +168,7 @@ export const MonthlyGoals = ({
           ligacoes: Number(goalsData.meta_ligacoes) || 0,
           horas: timeStringToSeconds(goalsData.meta_horas || "0"),
         });
+        setGoalEndDate(goalsData.data_final || format(new Date(), "dd/MM/yyyy"));
       } catch (error) {
         console.error("LOG: Erro ao buscar metas:", error);
         toast.error("Não foi possível carregar as metas mensais.");
@@ -263,7 +265,7 @@ export const MonthlyGoals = ({
           Diagnóstico de Metas
         </h2>
         <span className="text-sm text-muted-foreground">
-            - {format(new Date(), "MMMM yyyy")}
+            - Meta até: {goalEndDate}
         </span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
