@@ -10,6 +10,8 @@ interface AggregatedData {
   "Horas Faladas": string;
   "Conversas em Andamento": number;
   Vendas: number;
+  "Vendas WhatsApp": number;
+  "Total Vendas": number;
 }
 
 interface AchievementsProps {
@@ -37,11 +39,11 @@ export const Achievements = ({ data }: AchievementsProps) => {
         return null;
     }
 
-    const kingOfSales = data.reduce((prev, current) => (prev[1].Vendas > current[1].Vendas) ? prev : current);
+    const kingOfSales = data.reduce((prev, current) => (prev[1]["Total Vendas"] > current[1]["Total Vendas"]) ? prev : current);
     const marathonRunner = data.reduce((prev, current) => (timeStringToSeconds(prev[1]["Horas Faladas"]) > timeStringToSeconds(current[1]["Horas Faladas"])) ? prev : current);
     const salesSniper = data.map(([name, stats]) => ({
         name,
-        conversionRate: stats["Total de Chamadas"] > 0 ? (stats.Vendas / stats["Total de Chamadas"]) * 100 : 0,
+        conversionRate: stats["Total de Chamadas"] > 0 ? (stats["Total Vendas"] / stats["Total de Chamadas"]) * 100 : 0,
     })).reduce((prev, current) => (prev.conversionRate > current.conversionRate) ? prev : current);
     const quickStriker = data.reduce((prev, current) => (prev[1]["Ligações Menos 60"] > current[1]["Ligações Menos 60"]) ? prev : current);
 
@@ -53,7 +55,7 @@ export const Achievements = ({ data }: AchievementsProps) => {
                 Destaques do Período
             </h2>
             <div className="space-y-4">
-                <AchievementCard icon={<Crown className="w-8 h-8"/>} title="Rei das Vendas" collaborator={kingOfSales[0]} value={kingOfSales[1].Vendas} />
+                <AchievementCard icon={<Crown className="w-8 h-8"/>} title="Rei das Vendas" collaborator={kingOfSales[0]} value={kingOfSales[1]["Total Vendas"]} />
                 <AchievementCard icon={<Clock className="w-8 h-8"/>} title="Maratonista da Voz" collaborator={marathonRunner[0]} value={marathonRunner[1]["Horas Faladas"]} />
                 <AchievementCard icon={<TrendingUp className="w-8 h-8"/>} title="Sniper de Vendas" collaborator={salesSniper.name} value={`${salesSniper.conversionRate.toFixed(1)}%`} />
                 <AchievementCard icon={<Zap className="w-8 h-8"/>} title="Super Ligeiro" collaborator={quickStriker[0]} value={quickStriker[1]["Ligações Menos 60"]} />

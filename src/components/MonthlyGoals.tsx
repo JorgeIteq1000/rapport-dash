@@ -183,7 +183,7 @@ export const MonthlyGoals = ({
   const analysis = useMemo((): { vendas: GoalAnalysis; ligacoes: GoalAnalysis; horas: GoalAnalysis } => {
     const today = startOfDay(new Date());
     const monthEnd = endOfMonth(today);
-    const currentHorasFaladas = timeStringToSeconds(currentHorasFaladasStr);
+    const currentHorasFaladas = timeStringToSeconds(currentHorasFaladasStr) / 3600; // Convert seconds to hours
 
     // **CORREÇÃO**: Lógica de análise agora funciona mesmo sem `goals` ou `dateRange`
     const analyzeMetric = (current: number, goal: number): GoalAnalysis => {
