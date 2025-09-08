@@ -183,10 +183,10 @@ export const MonthlyGoals = ({
   const analysis = useMemo((): { vendas: GoalAnalysis; ligacoes: GoalAnalysis; horas: GoalAnalysis } => {
     const today = startOfDay(new Date());
     const monthEnd = endOfMonth(today);
-    const currentHorasFaladas = timeStringToSeconds(currentHorasFaladasStr) / 3600; // Convert seconds to hours
+    const currentHorasFaladas = timeStringToSeconds(currentHorasFaladasStr) / 3600; // Convert to hours for analysis
 
     // **CORREÇÃO**: Lógica de análise agora funciona mesmo sem `goals` ou `dateRange`
-    const analyzeMetric = (current: number, goal: number): GoalAnalysis => {
+    const analyzeMetric = (current: number, goal: number, unit: string, metricName: string): GoalAnalysis => {
         if (!goals || !dateRange?.from) {
              return { status: 'INDEFINIDO', message: 'Aguardando dados...', details: 'Selecione um período para ver a projeção.', projection: current, goal, current };
         }
@@ -220,18 +220,28 @@ export const MonthlyGoals = ({
         let message: string;
         let details: string;
 
+        // Format values based on unit
+        const formatValue = (value: number) => {
+            if (unit === 'h') {
+                const hours = Math.floor(value);
+                const minutes = Math.round((value - hours) * 60);
+                return `${hours}h ${minutes}m`;
+            }
+            return `${Math.round(value)} ${unit}`;
+        };
+
         if (projection >= goal) {
             const excedente = projection - goal;
             status = projection > goal * 1.1 ? 'OTIMO' : 'BOM';
             message = `✅ Rumo a Superar a Meta!`;
-            details = `Projeção de ${Math.round(projection)} (${Math.round(excedente)} acima). O ritmo atual de ${ritmoAtual.toFixed(1)}/dia é suficiente.`;
+            details = `Projeção de ${formatValue(projection)} (${formatValue(excedente)} acima). O ritmo atual de ${ritmoAtual.toFixed(1)}/dia é suficiente.`;
         } else {
             status = projection > goal * 0.9 ? 'ALERTA' : 'CRITICO';
             message = `⚠️ Meta em Risco!`;
             if (ritmoNecessario === Infinity) {
-                 details = `Projeção de ${Math.round(projection)}. O período selecionado já terminou e a meta não foi atingida.`
+                 details = `Projeção de ${formatValue(projection)}. O período selecionado já terminou e a meta não foi atingida.`
             } else {
-                 details = `Projeção de ${Math.round(projection)}. Para atingir a meta, o ritmo precisa subir de ${ritmoAtual.toFixed(1)}/dia para ${ritmoNecessario.toFixed(1)}/dia.`;
+                 details = `Projeção de ${formatValue(projection)}. Para atingir a meta, o ritmo precisa subir de ${ritmoAtual.toFixed(1)}/dia para ${ritmoNecessario.toFixed(1)}/dia.`;
             }
         }
         
@@ -241,9 +251,9 @@ export const MonthlyGoals = ({
     const fallbackGoal = { vendas: 0, ligacoes: 0, horas: 0 };
     
     return { 
-        vendas: analyzeMetric(currentVendas, goals?.vendas ?? 0), 
-        ligacoes: analyzeMetric(currentLigacoes, goals?.ligacoes ?? 0), 
-        horas: analyzeMetric(currentHorasFaladas, goals?.horas ?? 0)
+        vendas: analyzeMetric(currentVendas, goals?.vendas ?? 0, 'un', 'Vendas'), 
+        ligacoes: analyzeMetric(currentLigacoes, goals?.ligacoes ?? 0, 'un', 'Ligações'), 
+        horas: analyzeMetric(currentHorasFaladas, goals?.horas ?? 0, 'h', 'Horas Faladas')
     };
 
   }, [goals, dateRange, currentVendas, currentLigacoes, currentHorasFaladasStr]);
