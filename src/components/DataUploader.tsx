@@ -14,7 +14,9 @@ interface CallData {
   "Horas Faladas": string;
   "Conversas em Andamento": number;
   "Vendas": number;
+  "Vendas WhatsApp": number;
   "Hora da Ligação": string;
+  "Tipo": "ligacao" | "whatsapp";
 }
 
 interface DataUploaderProps {
@@ -80,7 +82,7 @@ export const DataUploader = ({ onDataLoad }: DataUploaderProps) => {
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.replace(/"/g, '').trim());
       
-      if (values.length >= 10 && values[0] && values[1]) { // Precisa ter Data e Colaborador
+      if (values.length >= 2 && values[0] && values[1]) { // Precisa ter Data e Colaborador
         const data = values[0];
         const colaborador = values[1];
         const colD = values[3] || ""; // Chamadas efetuadas +60 (tempo)
@@ -90,29 +92,53 @@ export const DataUploader = ({ onDataLoad }: DataUploaderProps) => {
         const colI = values[8] || "0"; // Vendas
         const colJ = values[9] || ""; // Hora da ligação
         
-        // Calcular métricas
-        const chamadasEfetuadas60 = colD ? 1 : 0; // Contar se tem tempo
-        const chamadasRecebidas60 = colE ? 1 : 0; // Contar se tem tempo
-        const ligacoesMenos60 = colF ? 1 : 0; // Contar se preenchido
-        const totalChamadas = chamadasEfetuadas60 + chamadasRecebidas60 + ligacoesMenos60;
+        // Identificar se é ligação ou WhatsApp
+        const isCallRecord = colD || colE || colF; // Se tem dados de ligação
+        const isWhatsAppRecord = !isCallRecord && Number(colI) > 0; // Só vendas sem dados de ligação
         
-        // Somar horas (colD + colE)
-        const horasFaladas = sumTimeFields(colD, colE);
-        
-        const obj: CallData = {
-          "Data": data,
-          "Colaborador": colaborador,
-          "Total de Chamadas": totalChamadas,
-          "Chamadas Efetuadas + 60": chamadasEfetuadas60,
-          "Chamadas Recebidas + 60": chamadasRecebidas60,
-          "Ligações Menos 60": ligacoesMenos60,
-          "Horas Faladas": horasFaladas,
-          "Conversas em Andamento": Number(colH) || 0,
-          "Vendas": Number(colI) || 0,
-          "Hora da Ligação": colJ
-        };
-        
-        jsonArray.push(obj);
+        if (isCallRecord) {
+          // Registros de ligação
+          const chamadasEfetuadas60 = colD ? 1 : 0;
+          const chamadasRecebidas60 = colE ? 1 : 0;
+          const ligacoesMenos60 = colF ? 1 : 0;
+          const totalChamadas = chamadasEfetuadas60 + chamadasRecebidas60 + ligacoesMenos60;
+          const horasFaladas = sumTimeFields(colD, colE);
+          
+          const obj: CallData = {
+            "Data": data,
+            "Colaborador": colaborador,
+            "Total de Chamadas": totalChamadas,
+            "Chamadas Efetuadas + 60": chamadasEfetuadas60,
+            "Chamadas Recebidas + 60": chamadasRecebidas60,
+            "Ligações Menos 60": ligacoesMenos60,
+            "Horas Faladas": horasFaladas,
+            "Conversas em Andamento": Number(colH) || 0,
+            "Vendas": Number(colI) || 0,
+            "Vendas WhatsApp": 0,
+            "Hora da Ligação": colJ,
+            "Tipo": "ligacao"
+          };
+          
+          jsonArray.push(obj);
+        } else if (isWhatsAppRecord) {
+          // Registros de venda por WhatsApp
+          const obj: CallData = {
+            "Data": data,
+            "Colaborador": colaborador,
+            "Total de Chamadas": 0,
+            "Chamadas Efetuadas + 60": 0,
+            "Chamadas Recebidas + 60": 0,
+            "Ligações Menos 60": 0,
+            "Horas Faladas": "00:00:00",
+            "Conversas em Andamento": 0,
+            "Vendas": 0,
+            "Vendas WhatsApp": Number(colI) || 0,
+            "Hora da Ligação": colJ,
+            "Tipo": "whatsapp"
+          };
+          
+          jsonArray.push(obj);
+        }
       }
     }
     

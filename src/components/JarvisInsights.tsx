@@ -12,6 +12,8 @@ interface AggregatedData {
   "Chamadas Efetuadas + 60": number;
   "Chamadas Recebidas + 60": number;
   Vendas: number;
+  "Vendas WhatsApp": number;
+  "Total Vendas": number;
   "Horas Faladas": string;
 }
 
@@ -25,14 +27,18 @@ interface CallData {
   "Horas Faladas": string;
   "Conversas em Andamento": number;
   Vendas: number;
+  "Vendas WhatsApp": number;
   "Hora da Ligação": string;
+  "Tipo": "ligacao" | "whatsapp";
 }
 
 interface JarvisInsightsProps {
   aggregatedData: [string, AggregatedData][];
   rawData: CallData[];
   totalMetrics: {
-    totalSales: number;
+    totalSales: number; // Vendas apenas por ligação
+    totalWhatsAppSales: number; // Vendas por WhatsApp
+    totalAllSales: number; // Total geral de vendas
     totalCalls: number;
     totalOutbound60: number;
     totalInbound60: number;
@@ -171,18 +177,19 @@ export const JarvisInsights = ({ aggregatedData, rawData, totalMetrics }: Jarvis
         }
     }
 
-    // --- 2. Ponto de Atenção (Taxa de Conversão) ---
+    // --- 2. Ponto de Atenção (Taxa de Conversão apenas para ligações) ---
     const teamConversionRate = totalMetrics.totalCalls > 0 ? (totalMetrics.totalSales / totalMetrics.totalCalls) * 100 : 0;
     const collaboratorsWithStats = aggregatedData.map(([name, stats]) => ({
         name,
-        conversionRate: stats["Total de Chamadas"] > 5 ? (stats.Vendas / stats["Total de Chamadas"]) * 100 : 0, // Analisa apenas com mais de 5 chamadas
-        calls: stats["Total de Chamadas"]
+        conversionRate: stats["Total de Chamadas"] > 5 ? (stats.Vendas / stats["Total de Chamadas"]) * 100 : 0, // Apenas vendas por ligação
+        calls: stats["Total de Chamadas"],
+        whatsappSales: stats["Vendas WhatsApp"]
     }));
 
     if (collaboratorsWithStats.length > 1) {
         const lowestConversion = collaboratorsWithStats.sort((a,b) => a.conversionRate - b.conversionRate)[0];
         if (lowestConversion.conversionRate < teamConversionRate / 2 && teamConversionRate > 0) {
-             const issueText = `A taxa de conversão de ${lowestConversion.name} (${lowestConversion.conversionRate.toFixed(1)}%) está significativamente abaixo da média da equipe (${teamConversionRate.toFixed(1)}%).`;
+             const issueText = `A taxa de conversão de ${lowestConversion.name} (${lowestConversion.conversionRate.toFixed(1)}%) está baixa em ligações, mas ${lowestConversion.whatsappSales > 0 ? `compensa com ${lowestConversion.whatsappSales} vendas via WhatsApp` : 'não tem vendas por WhatsApp registradas'}.`;
              allInsights.push(
                 <InsightCard 
                   icon={<AlertTriangle/>} 
@@ -201,24 +208,45 @@ export const JarvisInsights = ({ aggregatedData, rawData, totalMetrics }: Jarvis
         }
     }
     
-    // --- 3. Sugestão Estratégica (Top Performer de Vendas) ---
-     const topPerformer = [...aggregatedData].sort(([, a], [, b]) => b.Vendas - a.Vendas)[0];
-     if (topPerformer && topPerformer[1].Vendas > 0) {
+    // --- 3. Sugestão Estratégica (Top Performer por canal) ---
+     const topPerformerByTotal = [...aggregatedData].sort(([, a], [, b]) => b["Total Vendas"] - a["Total Vendas"])[0];
+     const topPerformerByCall = [...aggregatedData].filter(([, data]) => data.Vendas > 0).sort(([, a], [, b]) => b.Vendas - a.Vendas)[0];
+     const topPerformerByWhatsApp = [...aggregatedData].filter(([, data]) => data["Vendas WhatsApp"] > 0).sort(([, a], [, b]) => b["Vendas WhatsApp"] - a["Vendas WhatsApp"])[0];
+     
+     if (topPerformerByTotal && topPerformerByTotal[1]["Total Vendas"] > 0) {
+          let strategyText = `${topPerformerByTotal[0]} é o líder geral de vendas`;
+          
+          if (topPerformerByCall && topPerformerByWhatsApp) {
+            if (topPerformerByCall[0] === topPerformerByWhatsApp[0]) {
+              strategyText += `, dominando tanto ligações quanto WhatsApp.`;
+            } else {
+              strategyText += `. ${topPerformerByCall[0]} lidera em ligações e ${topPerformerByWhatsApp[0]} em WhatsApp.`;
+            }
+          } else if (topPerformerByCall) {
+            strategyText += `, focando em conversão por ligações.`;
+          } else if (topPerformerByWhatsApp) {
+            strategyText += `, focando em vendas via WhatsApp.`;
+          }
+          
           allInsights.push(
             <InsightCard icon={<Lightbulb/>} colorClass="text-dashboard-info" title="Sugestão Estratégica" key="strategy">
-                O colaborador <strong className="text-dashboard-info">{topPerformer[0]}</strong> é o líder de vendas. Analisar suas chamadas e scripts pode gerar insights valiosos para treinar o restante da equipe.
+                {strategyText} Analisar os métodos de cada canal pode gerar insights valiosos.
             </InsightCard>
         );
-     }
+      }
     
 
     // --- 4. Análise de Colaborador (Alto Volume, Baixa Venda) ---
     if (aggregatedData.length > 1) {
         const mostCallsCollaborator = [...aggregatedData].sort(([, a], [, b]) => b["Total de Chamadas"] - a["Total de Chamadas"])[0];
-        const averageSales = totalMetrics.totalSales / aggregatedData.length;
+        const averageCallSales = totalMetrics.totalSales / aggregatedData.length; // Média de vendas por ligação
 
-        if (mostCallsCollaborator && mostCallsCollaborator[1].Vendas < averageSales && mostCallsCollaborator[1]["Total de Chamadas"] > 10) {
-             const issueText = `${mostCallsCollaborator[0]} está com um volume de ligações alto, mas as vendas estão abaixo da média. Um ajuste no script de fechamento pode potencializar seus resultados.`;
+        if (mostCallsCollaborator && mostCallsCollaborator[1].Vendas < averageCallSales && mostCallsCollaborator[1]["Total de Chamadas"] > 10) {
+             const whatsappCompensation = mostCallsCollaborator[1]["Vendas WhatsApp"] > 0 ? 
+                ` Porém, compensa com ${mostCallsCollaborator[1]["Vendas WhatsApp"]} vendas via WhatsApp.` : 
+                ' Foco em treinar abordagem de fechamento ou incentivar uso do WhatsApp.';
+                
+             const issueText = `${mostCallsCollaborator[0]} faz muitas ligações mas converte pouco.${whatsappCompensation}`;
              allInsights.push(
                 <InsightCard 
                   icon={<UserCheck/>} 
@@ -242,13 +270,14 @@ export const JarvisInsights = ({ aggregatedData, rawData, totalMetrics }: Jarvis
 
   const teamAverages = useMemo(() => {
     const totalCalls = totalMetrics.totalCalls;
-    const totalSales = totalMetrics.totalSales;
+    const totalCallSales = totalMetrics.totalSales; // Apenas vendas por ligação
     const avgCallsPerDay = totalCalls / Math.max(aggregatedData.length, 1);
     
     return {
-      conversionRate: totalCalls > 0 ? (totalSales / totalCalls) * 100 : 0,
+      conversionRate: totalCalls > 0 ? (totalCallSales / totalCalls) * 100 : 0, // Taxa de conversão só para ligações
       avgCallsPerDay,
-      avgHoursPerDay: totalMetrics.totalHorasFaladas
+      avgHoursPerDay: totalMetrics.totalHorasFaladas,
+      avgWhatsAppSales: totalMetrics.totalWhatsAppSales / Math.max(aggregatedData.length, 1)
     };
   }, [totalMetrics, aggregatedData]);
   
