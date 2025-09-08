@@ -354,13 +354,15 @@ const aggregatedDataByCollaborator = useMemo(() => {
           </div>
         </div>
         
-        <GoalSetter 
-            collaborators={collaboratorNames}
-            onSaveGoal={handleSaveGoal}
-            goals={goals}
-            onDeleteGoal={handleDeleteGoal}
-            aggregatedData={aggregatedDataByCollaborator}
-          />          
+        <div className="text-center">
+          <Button 
+            onClick={() => window.open('/auth', '_blank')}
+            variant="outline"
+            className="bg-dashboard-primary/10 hover:bg-dashboard-primary/20 border-dashboard-primary/30"
+          >
+            🛡️ Área do Gestor
+          </Button>
+        </div>
 
         {/* JARVIS INSIGHTS */}
         {aggregatedMetrics && (
