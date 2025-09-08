@@ -8,6 +8,7 @@ import { ShieldCheck, LogOut, Settings, Target, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { GoalSetter } from '@/components/GoalSetter';
 import { Goal } from '@/components/GoalSetter';
+import { CollaboratorsPanel } from '@/components/CollaboratorsPanel';
 
 export default function AdminArea() {
   const [user, setUser] = useState<User | null>(null);
@@ -162,13 +163,8 @@ export default function AdminArea() {
                 <Users className="w-8 h-8 text-dashboard-info mx-auto mb-2" />
                 <CardTitle className="text-lg">Equipe</CardTitle>
               </CardHeader>
-              <CardContent className="text-center">
-                <p className="text-sm text-muted-foreground mb-4">
-                  Visualize performance e estatísticas da equipe
-                </p>
-                <Button variant="outline" disabled>
-                  Em Breve
-                </Button>
+              <CardContent>
+                <CollaboratorsPanel />
               </CardContent>
             </Card>
 

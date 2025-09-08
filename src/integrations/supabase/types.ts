@@ -14,7 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      colaboradores_ativos: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          bitrix_id: string
+          id: number
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          bitrix_id: string
+          id?: number
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          bitrix_id?: string
+          id?: number
+          nome?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
