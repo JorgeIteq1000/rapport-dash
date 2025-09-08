@@ -44,6 +44,7 @@ interface CallData {
   "Horas Faladas": string;
   "Conversas em Andamento": number;
   Vendas: number;
+  "Hora da Ligação": string;
 }
 
 interface AggregatedData {
@@ -355,6 +356,7 @@ const aggregatedDataByCollaborator = useMemo(() => {
         {aggregatedMetrics && (
             <JarvisInsights 
                 aggregatedData={aggregatedDataByCollaborator}
+                rawData={filteredData}
                 totalMetrics={{
                     totalSales: aggregatedMetrics.totalSales,
                     totalCalls: aggregatedMetrics.totalCalls,

@@ -14,6 +14,7 @@ interface CallData {
   "Horas Faladas": string;
   "Conversas em Andamento": number;
   "Vendas": number;
+  "Hora da Ligação": string;
 }
 
 interface DataUploaderProps {
@@ -73,33 +74,64 @@ export const DataUploader = ({ onDataLoad }: DataUploaderProps) => {
     const lines = csv.split('\n').filter(line => line.trim());
     if (lines.length < 2) return [];
     
-    const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
     const jsonArray: CallData[] = [];
     
+    // Mapear colunas por índice (A=0, B=1, D=3, E=4, F=5, H=7, I=8, J=9)
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.replace(/"/g, '').trim());
       
-      if (values.length >= headers.length) {
-        const obj: any = {};
-        headers.forEach((header, index) => {
-          let value: any = values[index];
-          
-          // Converter números
-          if (!isNaN(Number(value)) && value !== '') {
-            value = Number(value);
-          }
-          
-          obj[header] = value;
-        });
+      if (values.length >= 10 && values[0] && values[1]) { // Precisa ter Data e Colaborador
+        const data = values[0];
+        const colaborador = values[1];
+        const colD = values[3] || ""; // Chamadas efetuadas +60 (tempo)
+        const colE = values[4] || ""; // Chamadas recebidas +60 (tempo)  
+        const colF = values[5] || ""; // Ligações -60 (só contagem)
+        const colH = values[7] || "0"; // Conversas em andamento
+        const colI = values[8] || "0"; // Vendas
+        const colJ = values[9] || ""; // Hora da ligação
         
-        // Verificar se tem os campos obrigatórios
-        if (obj["Data"] && obj["Colaborador"] && obj["Total de Chamadas"] !== undefined) {
-          jsonArray.push(obj as CallData);
-        }
+        // Calcular métricas
+        const chamadasEfetuadas60 = colD ? 1 : 0; // Contar se tem tempo
+        const chamadasRecebidas60 = colE ? 1 : 0; // Contar se tem tempo
+        const ligacoesMenos60 = colF ? 1 : 0; // Contar se preenchido
+        const totalChamadas = chamadasEfetuadas60 + chamadasRecebidas60 + ligacoesMenos60;
+        
+        // Somar horas (colD + colE)
+        const horasFaladas = sumTimeFields(colD, colE);
+        
+        const obj: CallData = {
+          "Data": data,
+          "Colaborador": colaborador,
+          "Total de Chamadas": totalChamadas,
+          "Chamadas Efetuadas + 60": chamadasEfetuadas60,
+          "Chamadas Recebidas + 60": chamadasRecebidas60,
+          "Ligações Menos 60": ligacoesMenos60,
+          "Horas Faladas": horasFaladas,
+          "Conversas em Andamento": Number(colH) || 0,
+          "Vendas": Number(colI) || 0,
+          "Hora da Ligação": colJ
+        };
+        
+        jsonArray.push(obj);
       }
     }
     
     return jsonArray;
+  };
+
+  const sumTimeFields = (time1: string, time2: string): string => {
+    const parseTime = (timeStr: string): number => {
+      if (!timeStr || timeStr.trim() === "") return 0;
+      const [h = 0, m = 0, s = 0] = timeStr.split(':').map(Number);
+      return h * 3600 + m * 60 + s;
+    };
+    
+    const total = parseTime(time1) + parseTime(time2);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
   return (
