@@ -11,13 +11,10 @@ from google.oauth2.service_account import Credentials
 app = Flask(__name__)
 
 # --- DANGER!!! INFORMAÇÕES SENSÍVEIS NO CÓDIGO ---
-# --- RECOMENDAÇÃO FORTE: TORNE SEU REPOSITÓRIO GITHUB PRIVADO ---
-
 WEBHOOK_URL = "https://grupoiteq.bitrix24.com.br/rest/1236/8ov7ziteq81uvnmv/"
 GOOGLE_SHEET_KEY = "1iplPuPAD2rYDVdon4DWJhfrENiEKvCqU94N5ZArfImM"
 SECRET_TOKEN = "uMa-sEnHa-Bem-F0rt3-e-S3cr3tA" # Troque por uma senha complexa
 
-# Cole aqui o conteúdo completo das suas credenciais do Google
 GOOGLE_CREDS_DICT = {
   "type": "service_account",
   "project_id": "bitrix24-posvenda",
@@ -36,14 +33,13 @@ GOOGLE_CREDS_DICT = {
 # --- Configurações da Lógica ---
 TARGET_DEPARTMENT_NAME = "Comercial Interno"
 EXCLUDED_USER_IDS = {"40102", "4702", "1230"}
-START_DATE = datetime(2025, 9, 6)
 WORKSHEET_NAME = "Dados"
 SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive.file'
 ]
 
-# --- FUNÇÕES DE LÓGICA (código inalterado) ---
+# --- FUNÇÕES DE LÓGICA ---
 
 def log(message):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}")
@@ -59,6 +55,7 @@ def execute_bitrix_method(method, params=None):
         log(f"ERRO DE API BITRIX: {e}"); return None
 
 def get_target_users():
+    # Esta função permanece a mesma
     log("Buscando usuários do Bitrix...")
     department_id = None
     departments_data = execute_bitrix_method("department.get")
@@ -83,16 +80,25 @@ def run_check():
         worksheet = spreadsheet.worksheet(WORKSHEET_NAME)
     except Exception as e:
         log(f"ERRO CRÍTICO: Não foi possível conectar ao Google Sheets. {e}"); return
+
     log("Lendo IDs existentes na planilha (Coluna K)...")
     existing_ids_from_sheet = set(worksheet.col_values(11)); log(f"{len(existing_ids_from_sheet)} IDs únicos carregados.")
+    
     target_users = get_target_users()
     if not target_users: return
-    rows_for_export = []
+
+    # --- MUDANÇA PRINCIPAL AQUI ---
+    # Em vez de uma data fixa, buscamos apenas das últimas 24 horas para evitar timeouts.
     end_date = datetime.now()
-    log(f"Buscando ligações de {START_DATE.strftime('%d/%m/%Y')} até {end_date.strftime('%d/%m/%Y')}.")
+    start_date = end_date - timedelta(days=1)
+    # --- FIM DA MUDANÇA ---
+    
+    rows_for_export = []
+    log(f"Buscando ligações de {start_date.strftime('%d/%m/%Y %H:%M')} até {end_date.strftime('%d/%m/%Y %H:%M')}.")
     local_tz = timezone(timedelta(hours=-3))
-    start_of_period_utc = START_DATE.astimezone(timezone.utc)
+    start_of_period_utc = start_date.astimezone(timezone.utc)
     end_of_period_utc = end_date.astimezone(timezone.utc)
+
     for user_id, user_name in target_users.items():
         params = {"filter": {"PORTAL_USER_ID": user_id, ">=CALL_START_DATE": start_of_period_utc.isoformat(), "<=CALL_START_DATE": end_of_period_utc.isoformat()}, "order": {"CALL_START_DATE": "ASC"}}
         all_user_calls = []
@@ -100,7 +106,10 @@ def run_check():
             params["filter"]["CALL_TYPE"] = call_type
             call_data = execute_bitrix_method("voximplant.statistic.get", params)
             if call_data and 'result' in call_data: all_user_calls.extend(call_data['result'])
+        
         if not all_user_calls: continue
+        
+        # O resto do loop de processamento continua igual
         log(f"Processando {len(all_user_calls)} ligações para {user_name}...")
         for call in all_user_calls:
             call_id = call.get('ID')
@@ -124,6 +133,7 @@ def run_check():
                     else: coluna_e = duration_formatted
                 else: coluna_f = duration_formatted
                 rows_for_export.append([call_date_str, user_name, call_type_str, coluna_d, coluna_e, coluna_f, '', '', '', call_time_str, call_id])
+
     if rows_for_export:
         log(f"ENCONTRADAS {len(rows_for_export)} NOVAS LIGAÇÕES. Inserindo na planilha...")
         try:
@@ -138,6 +148,9 @@ def run_check():
 @app.route('/<path:path>', methods=['GET'])
 def handler(path):
     provided_token = request.args.get('token')
+    if not SECRET_TOKEN:
+        log("ERRO DE CONFIGURAÇÃO: SECRET_TOKEN não foi definido.")
+        return jsonify({"status": "error", "message": "Erro de configuração no servidor."}), 500
     if provided_token != SECRET_TOKEN:
         log("Acesso não autorizado.")
         return jsonify({"status": "error", "message": "Acesso não autorizado"}), 401
