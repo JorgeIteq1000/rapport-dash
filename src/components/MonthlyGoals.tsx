@@ -184,6 +184,7 @@ export const MonthlyGoals = ({
     const today = startOfDay(new Date());
     const monthEnd = endOfMonth(today);
     const currentHorasFaladas = timeStringToSeconds(currentHorasFaladasStr) / 3600; // Convert to hours for analysis
+<<<<<<< HEAD
 
     const currentHorasFaladasEmSegundos = timeStringToSeconds(currentHorasFaladasStr);
 
@@ -192,6 +193,70 @@ const analyzeMetric = (current: number, goal: number, unit: string, metricName: 
     // Adiciona a função formatValue localmente
     const formatValue = (value: number) => {
         return unit === 'h' ? secondsToHoursString(value, 'short') : Math.round(value);
+=======
+
+    // **CORREÇÃO**: Lógica de análise agora funciona mesmo sem `goals` ou `dateRange`
+    const analyzeMetric = (current: number, goal: number, unit: string, metricName: string): GoalAnalysis => {
+        if (!goals || !dateRange?.from) {
+             return { status: 'INDEFINIDO', message: 'Aguardando dados...', details: 'Selecione um período para ver a projeção.', projection: current, goal, current };
+        }
+        
+        const startDate = dateRange.from;
+        const endDate = dateRange.to || dateRange.from; // **CORREÇÃO**: Garante que temos uma data final
+        
+        if (!isValid(startDate) || !isValid(endDate)){
+             return { status: 'INDEFINIDO', message: 'Data inválida', details: 'O filtro de data parece inválido.', projection: current, goal, current };
+        }
+        
+        const diasUteisNoFiltro = calculateBusinessDays(startDate, endDate);
+        const diasUteisRestantes = endDate < monthEnd ? calculateBusinessDays(endDate, monthEnd) : 0;
+        
+        if (goal <= 0) {
+            return { status: 'INDEFINIDO', message: 'Meta não definida', details: 'Não há meta para calcular a projeção.', projection: current, goal, current };
+        }
+        if (current >= goal) {
+            return { status: 'CONCLUIDO', message: '🎉 Meta Batida!', details: `Parabéns, objetivo alcançado!`, projection: current, goal, current };
+        }
+        if (diasUteisNoFiltro <= 0) {
+            return { status: 'INDEFINIDO', message: 'Sem dados no período', details: 'Selecione um período com dias úteis para calcular.', projection: current, goal, current };
+        }
+
+        const ritmoAtual = current / diasUteisNoFiltro;
+        const restanteNecessario = goal - current;
+        const ritmoNecessario = diasUteisRestantes > 0 ? restanteNecessario / diasUteisRestantes : Infinity;
+        const projection = current + (ritmoAtual * diasUteisRestantes);
+
+        let status: GoalAnalysis['status'];
+        let message: string;
+        let details: string;
+
+        // Format values based on unit
+        const formatValue = (value: number) => {
+            if (unit === 'h') {
+                const hours = Math.floor(value);
+                const minutes = Math.round((value - hours) * 60);
+                return `${hours}h ${minutes}m`;
+            }
+            return `${Math.round(value)} ${unit}`;
+        };
+
+        if (projection >= goal) {
+            const excedente = projection - goal;
+            status = projection > goal * 1.1 ? 'OTIMO' : 'BOM';
+            message = `✅ Rumo a Superar a Meta!`;
+            details = `Projeção de ${formatValue(projection)} (${formatValue(excedente)} acima). O ritmo atual de ${ritmoAtual.toFixed(1)}/dia é suficiente.`;
+        } else {
+            status = projection > goal * 0.9 ? 'ALERTA' : 'CRITICO';
+            message = `⚠️ Meta em Risco!`;
+            if (ritmoNecessario === Infinity) {
+                 details = `Projeção de ${formatValue(projection)}. O período selecionado já terminou e a meta não foi atingida.`
+            } else {
+                 details = `Projeção de ${formatValue(projection)}. Para atingir a meta, o ritmo precisa subir de ${ritmoAtual.toFixed(1)}/dia para ${ritmoNecessario.toFixed(1)}/dia.`;
+            }
+        }
+        
+        return { status, message, details, projection, goal, current };
+>>>>>>> da705f22273d655b06d9d27b045719ff221ebab9
     };
 
     if (!goals || !dateRange?.from) {
@@ -261,8 +326,12 @@ const analyzeMetric = (current: number, goal: number, unit: string, metricName: 
     return { 
         vendas: analyzeMetric(currentVendas, goals?.vendas ?? 0, 'un', 'Vendas'), 
         ligacoes: analyzeMetric(currentLigacoes, goals?.ligacoes ?? 0, 'un', 'Ligações'), 
+<<<<<<< HEAD
         // PASSA O VALOR CORRETO (EM SEGUNDOS) PARA A ANÁLISE
         horas: analyzeMetric(currentHorasFaladasEmSegundos, goals?.horas ?? 0, 'h', 'Horas Faladas') 
+=======
+        horas: analyzeMetric(currentHorasFaladas, goals?.horas ?? 0, 'h', 'Horas Faladas')
+>>>>>>> da705f22273d655b06d9d27b045719ff221ebab9
     };
 
   }, [goals, dateRange, currentVendas, currentLigacoes, currentHorasFaladasStr]);
