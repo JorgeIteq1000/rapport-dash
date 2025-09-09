@@ -72,14 +72,8 @@ export function IndividualGoals({ aggregatedData, goals }: IndividualGoalsProps)
                             <div className="flex justify-between items-baseline mb-1">
                                 <span className="capitalize text-sm font-medium">{goal.metric}</span>
                                 <span className="text-xs text-muted-foreground">
-<<<<<<< HEAD
                                 {displayValue} / {goal.target}{goal.metric === 'Horas Faladas' ? 'h' : ''}
                             </span>
-=======
-                                    {/* CORREÇÃO: Comparar com "Horas Faladas" */}
-                                    {displayValue} / {goal.target}{goal.metric === 'Horas Faladas' ? 'h' : ''}
-                                </span>
->>>>>>> da705f22273d655b06d9d27b045719ff221ebab9
                             </div>
                             <Progress value={progress} />
                         </CardContent>
