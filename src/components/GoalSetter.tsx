@@ -128,7 +128,7 @@ export function GoalSetter({ collaborators, onSaveGoal, goals, onDeleteGoal, agg
                     if(collaboratorData){
                         if (goal.metric === 'Vendas') currentValue = collaboratorData.Vendas;
                         if (goal.metric === 'Total de Chamadas') currentValue = collaboratorData["Total de Chamadas"];
-                        if (goal.metric === 'Horas Faladas') currentValue = timeStringToSeconds(collaboratorData["Horas Faladas"]) / 60;
+                        if (goal.metric === 'Horas Faladas') currentValue = timeStringToSeconds(collaboratorData["Horas Faladas"]) / 3600; // Convertendo para HORAS
                     }
                     const progress = goal.target > 0 ? (currentValue / goal.target) * 100 : 0;
 

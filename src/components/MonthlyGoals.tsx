@@ -142,6 +142,7 @@ export const MonthlyGoals = ({
   dateRange,
 }: MonthlyGoalsProps) => {
   const [goals, setGoals] = useState<Goals | null>(null);
+  const [goalEndDate, setGoalEndDate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -167,6 +168,7 @@ export const MonthlyGoals = ({
           ligacoes: Number(goalsData.meta_ligacoes) || 0,
           horas: timeStringToSeconds(goalsData.meta_horas || "0"),
         });
+        setGoalEndDate(goalsData.data_final || format(new Date(), "dd/MM/yyyy"));
       } catch (error) {
         console.error("LOG: Erro ao buscar metas:", error);
         toast.error("Não foi possível carregar as metas mensais.");
@@ -181,67 +183,86 @@ export const MonthlyGoals = ({
   const analysis = useMemo((): { vendas: GoalAnalysis; ligacoes: GoalAnalysis; horas: GoalAnalysis } => {
     const today = startOfDay(new Date());
     const monthEnd = endOfMonth(today);
-    const currentHorasFaladas = timeStringToSeconds(currentHorasFaladasStr);
+    const currentHorasFaladas = timeStringToSeconds(currentHorasFaladasStr) / 3600; // Convert to hours for analysis
+
+    const currentHorasFaladasEmSegundos = timeStringToSeconds(currentHorasFaladasStr);
 
     // **CORREÇÃO**: Lógica de análise agora funciona mesmo sem `goals` ou `dateRange`
-    const analyzeMetric = (current: number, goal: number): GoalAnalysis => {
-        if (!goals || !dateRange?.from) {
-             return { status: 'INDEFINIDO', message: 'Aguardando dados...', details: 'Selecione um período para ver a projeção.', projection: current, goal, current };
-        }
-        
-        const startDate = dateRange.from;
-        const endDate = dateRange.to || dateRange.from; // **CORREÇÃO**: Garante que temos uma data final
-        
-        if (!isValid(startDate) || !isValid(endDate)){
-             return { status: 'INDEFINIDO', message: 'Data inválida', details: 'O filtro de data parece inválido.', projection: current, goal, current };
-        }
-        
-        const diasUteisNoFiltro = calculateBusinessDays(startDate, endDate);
-        const diasUteisRestantes = endDate < monthEnd ? calculateBusinessDays(endDate, monthEnd) : 0;
-        
-        if (goal <= 0) {
-            return { status: 'INDEFINIDO', message: 'Meta não definida', details: 'Não há meta para calcular a projeção.', projection: current, goal, current };
-        }
-        if (current >= goal) {
-            return { status: 'CONCLUIDO', message: '🎉 Meta Batida!', details: `Parabéns, objetivo alcançado!`, projection: current, goal, current };
-        }
-        if (diasUteisNoFiltro <= 0) {
-            return { status: 'INDEFINIDO', message: 'Sem dados no período', details: 'Selecione um período com dias úteis para calcular.', projection: current, goal, current };
-        }
-
-        const ritmoAtual = current / diasUteisNoFiltro;
-        const restanteNecessario = goal - current;
-        const ritmoNecessario = diasUteisRestantes > 0 ? restanteNecessario / diasUteisRestantes : Infinity;
-        const projection = current + (ritmoAtual * diasUteisRestantes);
-
-        let status: GoalAnalysis['status'];
-        let message: string;
-        let details: string;
-
-        if (projection >= goal) {
-            const excedente = projection - goal;
-            status = projection > goal * 1.1 ? 'OTIMO' : 'BOM';
-            message = `✅ Rumo a Superar a Meta!`;
-            details = `Projeção de ${Math.round(projection)} (${Math.round(excedente)} acima). O ritmo atual de ${ritmoAtual.toFixed(1)}/dia é suficiente.`;
-        } else {
-            status = projection > goal * 0.9 ? 'ALERTA' : 'CRITICO';
-            message = `⚠️ Meta em Risco!`;
-            if (ritmoNecessario === Infinity) {
-                 details = `Projeção de ${Math.round(projection)}. O período selecionado já terminou e a meta não foi atingida.`
-            } else {
-                 details = `Projeção de ${Math.round(projection)}. Para atingir a meta, o ritmo precisa subir de ${ritmoAtual.toFixed(1)}/dia para ${ritmoNecessario.toFixed(1)}/dia.`;
-            }
-        }
-        
-        return { status, message, details, projection, goal, current };
+const analyzeMetric = (current: number, goal: number, unit: string, metricName: string): GoalAnalysis => {
+    // Adiciona a função formatValue localmente
+    const formatValue = (value: number) => {
+        return unit === 'h' ? secondsToHoursString(value, 'short') : Math.round(value);
     };
+
+    if (!goals || !dateRange?.from) {
+         return { status: 'INDEFINIDO', message: 'Aguardando dados...', details: 'Selecione um período para ver a projeção.', projection: current, goal, current };
+    }
+    
+    const startDate = dateRange.from;
+    const endDate = dateRange.to || dateRange.from; // **CORREÇÃO**: Garante que temos uma data final
+    
+    if (!isValid(startDate) || !isValid(endDate)){
+         return { status: 'INDEFINIDO', message: 'Data inválida', details: 'O filtro de data parece inválido.', projection: current, goal, current };
+    }
+    
+    const diasUteisNoFiltro = calculateBusinessDays(startDate, endDate);
+    const diasUteisRestantes = endDate < monthEnd ? calculateBusinessDays(endDate, monthEnd) : 0;
+    
+    if (goal <= 0) {
+        return { status: 'INDEFINIDO', message: 'Meta não definida', details: 'Não há meta para calcular a projeção.', projection: current, goal, current };
+    }
+    if (current >= goal) {
+        return { status: 'CONCLUIDO', message: '🎉 Meta Batida!', details: `Parabéns, objetivo alcançado!`, projection: current, goal, current };
+    }
+    if (diasUteisNoFiltro <= 0) {
+        return { status: 'INDEFINIDO', message: 'Sem dados no período', details: 'Selecione um período com dias úteis para calcular.', projection: current, goal, current };
+    }
+
+    const ritmoAtual = current / diasUteisNoFiltro;
+    const restanteNecessario = goal - current;
+    const ritmoNecessario = diasUteisRestantes > 0 ? restanteNecessario / diasUteisRestantes : Infinity;
+    const projection = current + (ritmoAtual * diasUteisRestantes);
+
+    let status: GoalAnalysis['status'];
+    let message: string;
+    let details: string;
+
+    // Format values based on unit
+    const formatRate = (rate: number) => {
+        if (unit === 'h') {
+            // Converte o ritmo (segundos/dia) para horas e minutos
+            const dailyMinutes = Math.round((rate % 3600) / 60);
+            const dailyHours = Math.floor(rate / 3600);
+            return `${dailyHours}h ${dailyMinutes}m/dia`;
+        }
+        return `${rate.toFixed(1)}/dia`;
+    }
+
+    if (projection >= goal) {
+        const excedente = projection - goal;
+        status = projection > goal * 1.1 ? 'OTIMO' : 'BOM';
+        message = `✅ Rumo a Superar a Meta!`;
+        details = `Projeção de ${formatValue(projection)} (${formatValue(excedente)} acima). O ritmo atual de ${formatRate(ritmoAtual)} é suficiente.`;
+    } else {
+        status = projection > goal * 0.9 ? 'ALERTA' : 'CRITICO';
+        message = `⚠️ Meta em Risco!`;
+        if (ritmoNecessario === Infinity) {
+            details = `Projeção de ${formatValue(projection)}. O período selecionado já terminou e a meta não foi atingida.`
+        } else {
+            details = `Projeção de ${formatValue(projection)}. Para atingir a meta, o ritmo precisa subir de ${formatRate(ritmoAtual)} para ${formatRate(ritmoNecessario)}.`;
+        }
+    }
+    
+    return { status, message, details, projection, goal, current };
+};
 
     const fallbackGoal = { vendas: 0, ligacoes: 0, horas: 0 };
     
     return { 
-        vendas: analyzeMetric(currentVendas, goals?.vendas ?? 0), 
-        ligacoes: analyzeMetric(currentLigacoes, goals?.ligacoes ?? 0), 
-        horas: analyzeMetric(currentHorasFaladas, goals?.horas ?? 0)
+        vendas: analyzeMetric(currentVendas, goals?.vendas ?? 0, 'un', 'Vendas'), 
+        ligacoes: analyzeMetric(currentLigacoes, goals?.ligacoes ?? 0, 'un', 'Ligações'), 
+        // PASSA O VALOR CORRETO (EM SEGUNDOS) PARA A ANÁLISE
+        horas: analyzeMetric(currentHorasFaladasEmSegundos, goals?.horas ?? 0, 'h', 'Horas Faladas') 
     };
 
   }, [goals, dateRange, currentVendas, currentLigacoes, currentHorasFaladasStr]);
@@ -263,13 +284,14 @@ export const MonthlyGoals = ({
           Diagnóstico de Metas
         </h2>
         <span className="text-sm text-muted-foreground">
-            - {format(new Date(), "MMMM yyyy")}
+            - Meta até: {goalEndDate}
         </span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <GoalCard title="Vendas" icon={<TrendingUp className="w-4 h-4 text-dashboard-success"/>} analysis={analysis.vendas} unit="un" />
-          <GoalCard title="Ligações" icon={<Phone className="w-4 h-4 text-dashboard-primary"/>} analysis={analysis.ligacoes} unit="un" />
-          <GoalCard title="Horas Faladas" icon={<Clock className="w-4 h-4 text-dashboard-info"/>} analysis={analysis.horas} unit="h" />
+          <GoalCard title="Vendas" icon={<TrendingUp />} analysis={analysis.vendas} unit="un" />
+          <GoalCard title="Ligações" icon={<Phone />} analysis={analysis.ligacoes} unit="un" />
+          {/* A análise de 'horas' já usa o valor em segundos para cálculo e formatação */}
+          <GoalCard title="Horas Faladas" icon={<Clock />} analysis={analysis.horas} unit="h" />
       </div>
     </div>
   );

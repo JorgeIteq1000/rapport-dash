@@ -4,9 +4,17 @@ import { Progress } from "@/components/ui/progress";
 import { Goal } from "./GoalSetter";
 import { Users } from "lucide-react";
 
-const timeStringToSeconds = (time: string): number => {
+// Helper function to convert time string to hours
+const timeStringToHours = (time: string): number => {
   const [h = 0, m = 0, s = 0] = (time || "0:0:0").split(":").map(Number);
-  return h * 3600 + m * 60 + s;
+  return h + m / 60 + s / 3600;
+};
+
+// Helper function to format hours to display format
+const formatHoursDisplay = (totalHours: number): string => {
+  const hours = Math.floor(totalHours);
+  const minutes = Math.round((totalHours - hours) * 60);
+  return `${hours}h ${minutes}m`;
 };
 
 interface IndividualGoalsProps {
@@ -48,8 +56,8 @@ export function IndividualGoals({ aggregatedData, goals }: IndividualGoalsProps)
                     }
                     // CORREÇÃO: Comparar com "Horas Faladas"
                     if (goal.metric === 'Horas Faladas') {
-                        currentValue = timeStringToSeconds(collaboratorData["Horas Faladas"]) / 60; // Meta em minutos
-                        displayValue = `${currentValue.toFixed(0)} min`;
+                        currentValue = timeStringToHours(collaboratorData["Horas Faladas"]); // Meta em horas
+                        displayValue = formatHoursDisplay(currentValue);
                     }
                 }
 
@@ -64,9 +72,8 @@ export function IndividualGoals({ aggregatedData, goals }: IndividualGoalsProps)
                             <div className="flex justify-between items-baseline mb-1">
                                 <span className="capitalize text-sm font-medium">{goal.metric}</span>
                                 <span className="text-xs text-muted-foreground">
-                                    {/* CORREÇÃO: Comparar com "Horas Faladas" */}
-                                    {displayValue} / {goal.target}{goal.metric === 'Horas Faladas' ? ' min' : ''}
-                                </span>
+                                {displayValue} / {goal.target}{goal.metric === 'Horas Faladas' ? 'h' : ''}
+                            </span>
                             </div>
                             <Progress value={progress} />
                         </CardContent>

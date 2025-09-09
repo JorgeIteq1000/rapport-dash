@@ -16,7 +16,7 @@ export const achievementsList: Achievement[] = [
     name: 'Máquina de Vendas',
     description: 'Atingiu a marca de 5 vendas no período.',
     icon: Award,
-    condition: (collaboratorData) => collaboratorData.Vendas >= 5,
+    condition: (collaboratorData) => collaboratorData["Total Vendas"] >= 5,
   },
   {
     id: 'ligacoes_50',
@@ -28,11 +28,11 @@ export const achievementsList: Achievement[] = [
   {
     id: 'melhor_vendedor',
     name: 'Rei do Pedaço',
-    description: 'Foi o colaborador com mais vendas no período.',
+    description: 'Foi o colaborador com mais vendas do período.',
     icon: Crown,
     condition: (collaboratorData, allCollaboratorsData) => {
-      const maxVendas = Math.max(...allCollaboratorsData.map(c => c[1].Vendas));
-      return collaboratorData.Vendas === maxVendas && maxVendas > 0;
+      const maxVendas = Math.max(...allCollaboratorsData.map(c => c[1]["Total Vendas"]));
+      return collaboratorData["Total Vendas"] === maxVendas && maxVendas > 0;
     },
   },
   {
@@ -41,9 +41,9 @@ export const achievementsList: Achievement[] = [
     description: 'Fez a primeira venda do time no período selecionado.',
     icon: Rocket,
     condition: (collaboratorData, allCollaboratorsData) => {
-        // Lógica simplificada: dá a medalha ao melhor vendedor.
-        const maxVendas = Math.max(...allCollaboratorsData.map(c => c[1].Vendas));
-        return collaboratorData.Vendas === maxVendas && maxVendas > 0;
+        // Lógica simplificada: dá a medalha ao melhor vendedor total.
+        const maxVendas = Math.max(...allCollaboratorsData.map(c => c[1]["Total Vendas"]));
+        return collaboratorData["Total Vendas"] === maxVendas && maxVendas > 0;
     }
   }
 ];

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
-import { BrainCircuit, TrendingUp, AlertTriangle, Lightbulb, UserCheck, Trophy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BrainCircuit, TrendingUp, AlertTriangle, Lightbulb, UserCheck, Trophy, Search } from "lucide-react";
 import { parse, isValid, differenceInDays, startOfMonth } from "date-fns";
 import { toast } from "sonner";
+import { RootCauseAnalysis } from "./RootCauseAnalysis";
 
 // Tipos de dados completos que o componente agora precisa
 interface AggregatedData {
@@ -10,13 +12,33 @@ interface AggregatedData {
   "Chamadas Efetuadas + 60": number;
   "Chamadas Recebidas + 60": number;
   Vendas: number;
+  "Vendas WhatsApp": number;
+  "Total Vendas": number;
   "Horas Faladas": string;
+}
+
+interface CallData {
+  Data: string;
+  Colaborador: string;
+  "Total de Chamadas": number;
+  "Chamadas Efetuadas + 60": number;
+  "Chamadas Recebidas + 60": number;
+  "Ligações Menos 60": number;
+  "Horas Faladas": string;
+  "Conversas em Andamento": number;
+  Vendas: number;
+  "Vendas WhatsApp": number;
+  "Hora da Ligação": string;
+  "Tipo": "ligacao" | "whatsapp";
 }
 
 interface JarvisInsightsProps {
   aggregatedData: [string, AggregatedData][];
+  rawData: CallData[];
   totalMetrics: {
-    totalSales: number;
+    totalSales: number; // Vendas apenas por ligação
+    totalWhatsAppSales: number; // Vendas por WhatsApp
+    totalAllSales: number; // Total geral de vendas
     totalCalls: number;
     totalOutbound60: number;
     totalInbound60: number;
@@ -37,22 +59,52 @@ const timeStringToSeconds = (timeStr: string): number => {
 };
 
 // Componente para renderizar cada card de insight
-const InsightCard = ({ icon, colorClass, title, children }: { icon: React.ReactNode, colorClass: string, title: string, children: React.ReactNode }) => (
-    <div className="flex items-start gap-4 p-3 rounded-lg bg-background/50">
+const InsightCard = ({ 
+  icon, 
+  colorClass, 
+  title, 
+  children, 
+  onClick, 
+  isClickable = false 
+}: { 
+  icon: React.ReactNode; 
+  colorClass: string; 
+  title: string; 
+  children: React.ReactNode;
+  onClick?: () => void;
+  isClickable?: boolean;
+}) => (
+    <div 
+      className={`flex items-start gap-4 p-3 rounded-lg bg-background/50 ${
+        isClickable ? 'cursor-pointer hover:bg-background/70 transition-colors border-2 border-transparent hover:border-dashboard-primary/30' : ''
+      }`}
+      onClick={onClick}
+    >
         <div className={`p-2 bg-opacity-20 rounded-lg ${colorClass.replace('text-', 'bg-')}`}>
             {React.cloneElement(icon as React.ReactElement, { className: `w-6 h-6 ${colorClass}` })}
         </div>
-        <div>
-            <h4 className="font-semibold text-foreground">{title}</h4>
+        <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-foreground">{title}</h4>
+              {isClickable && (
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                  <Search className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">{children}</p>
         </div>
     </div>
 );
 
 
-export const JarvisInsights = ({ aggregatedData, totalMetrics }: JarvisInsightsProps) => {
+export const JarvisInsights = ({ aggregatedData, rawData, totalMetrics }: JarvisInsightsProps) => {
   const [goals, setGoals] = useState<Goals | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedAnalysis, setSelectedAnalysis] = useState<{
+    collaborator: string;
+    issue: string;
+  } | null>(null);
 
   // LOG: Busca as metas da planilha (igual antes)
   useEffect(() => {
@@ -112,7 +164,12 @@ export const JarvisInsights = ({ aggregatedData, totalMetrics }: JarvisInsightsP
                 const percentageAbove = ((currentHours / expectedHours) - 1) * 100;
                 const topContributor = [...aggregatedData].sort(([, a], [, b]) => timeStringToSeconds(b["Horas Faladas"]) - timeStringToSeconds(a["Horas Faladas"]))[0];
                 allInsights.push(
-                    <InsightCard icon={<TrendingUp/>} colorClass="text-dashboard-success" title="Destaque Positivo" key="positive">
+                    <InsightCard 
+                      icon={<TrendingUp/>} 
+                      colorClass="text-dashboard-success" 
+                      title="Destaque Positivo" 
+                      key="positive"
+                    >
                         Parabéns! A equipe está <strong className="text-dashboard-success">{percentageAbove.toFixed(0)}%</strong> à frente da meta proporcional de horas. O colaborador <strong className="text-dashboard-success">{topContributor[0]}</strong> é o maior contribuinte.
                     </InsightCard>
                 );
@@ -120,45 +177,89 @@ export const JarvisInsights = ({ aggregatedData, totalMetrics }: JarvisInsightsP
         }
     }
 
-    // --- 2. Ponto de Atenção (Taxa de Conversão) ---
+    // --- 2. Ponto de Atenção (Taxa de Conversão apenas para ligações) ---
     const teamConversionRate = totalMetrics.totalCalls > 0 ? (totalMetrics.totalSales / totalMetrics.totalCalls) * 100 : 0;
     const collaboratorsWithStats = aggregatedData.map(([name, stats]) => ({
         name,
-        conversionRate: stats["Total de Chamadas"] > 5 ? (stats.Vendas / stats["Total de Chamadas"]) * 100 : 0, // Analisa apenas com mais de 5 chamadas
-        calls: stats["Total de Chamadas"]
+        conversionRate: stats["Total de Chamadas"] > 5 ? (stats.Vendas / stats["Total de Chamadas"]) * 100 : 0, // Apenas vendas por ligação
+        calls: stats["Total de Chamadas"],
+        whatsappSales: stats["Vendas WhatsApp"]
     }));
 
     if (collaboratorsWithStats.length > 1) {
         const lowestConversion = collaboratorsWithStats.sort((a,b) => a.conversionRate - b.conversionRate)[0];
         if (lowestConversion.conversionRate < teamConversionRate / 2 && teamConversionRate > 0) {
+             const issueText = `A taxa de conversão de ${lowestConversion.name} (${lowestConversion.conversionRate.toFixed(1)}%) está baixa em ligações, mas ${lowestConversion.whatsappSales > 0 ? `compensa com ${lowestConversion.whatsappSales} vendas via WhatsApp` : 'não tem vendas por WhatsApp registradas'}.`;
              allInsights.push(
-                <InsightCard icon={<AlertTriangle/>} colorClass="text-dashboard-warning" title="Ponto de Atenção" key="attention">
-                    A taxa de conversão de <strong className="text-dashboard-warning">{lowestConversion.name}</strong> ({lowestConversion.conversionRate.toFixed(1)}%) está significativamente abaixo da média da equipe ({teamConversionRate.toFixed(1)}%).
+                <InsightCard 
+                  icon={<AlertTriangle/>} 
+                  colorClass="text-dashboard-warning" 
+                  title="Ponto de Atenção" 
+                  key="attention"
+                  isClickable={true}
+                  onClick={() => setSelectedAnalysis({
+                    collaborator: lowestConversion.name,
+                    issue: issueText
+                  })}
+                >
+                    {issueText}
                 </InsightCard>
             );
         }
     }
     
-    // --- 3. Sugestão Estratégica (Top Performer de Vendas) ---
-     const topPerformer = [...aggregatedData].sort(([, a], [, b]) => b.Vendas - a.Vendas)[0];
-     if (topPerformer && topPerformer[1].Vendas > 0) {
+    // --- 3. Sugestão Estratégica (Top Performer por canal) ---
+     const topPerformerByTotal = [...aggregatedData].sort(([, a], [, b]) => b["Total Vendas"] - a["Total Vendas"])[0];
+     const topPerformerByCall = [...aggregatedData].filter(([, data]) => data.Vendas > 0).sort(([, a], [, b]) => b.Vendas - a.Vendas)[0];
+     const topPerformerByWhatsApp = [...aggregatedData].filter(([, data]) => data["Vendas WhatsApp"] > 0).sort(([, a], [, b]) => b["Vendas WhatsApp"] - a["Vendas WhatsApp"])[0];
+     
+     if (topPerformerByTotal && topPerformerByTotal[1]["Total Vendas"] > 0) {
+          let strategyText = `${topPerformerByTotal[0]} é o líder geral de vendas`;
+          
+          if (topPerformerByCall && topPerformerByWhatsApp) {
+            if (topPerformerByCall[0] === topPerformerByWhatsApp[0]) {
+              strategyText += `, dominando tanto ligações quanto WhatsApp.`;
+            } else {
+              strategyText += `. ${topPerformerByCall[0]} lidera em ligações e ${topPerformerByWhatsApp[0]} em WhatsApp.`;
+            }
+          } else if (topPerformerByCall) {
+            strategyText += `, focando em conversão por ligações.`;
+          } else if (topPerformerByWhatsApp) {
+            strategyText += `, focando em vendas via WhatsApp.`;
+          }
+          
           allInsights.push(
             <InsightCard icon={<Lightbulb/>} colorClass="text-dashboard-info" title="Sugestão Estratégica" key="strategy">
-                O colaborador <strong className="text-dashboard-info">{topPerformer[0]}</strong> é o líder de vendas. Analisar suas chamadas e scripts pode gerar insights valiosos para treinar o restante da equipe.
+                {strategyText} Analisar os métodos de cada canal pode gerar insights valiosos.
             </InsightCard>
         );
-     }
+      }
     
 
     // --- 4. Análise de Colaborador (Alto Volume, Baixa Venda) ---
     if (aggregatedData.length > 1) {
         const mostCallsCollaborator = [...aggregatedData].sort(([, a], [, b]) => b["Total de Chamadas"] - a["Total de Chamadas"])[0];
-        const averageSales = totalMetrics.totalSales / aggregatedData.length;
+        const averageCallSales = totalMetrics.totalSales / aggregatedData.length; // Média de vendas por ligação
 
-        if (mostCallsCollaborator && mostCallsCollaborator[1].Vendas < averageSales && mostCallsCollaborator[1]["Total de Chamadas"] > 10) {
+        if (mostCallsCollaborator && mostCallsCollaborator[1].Vendas < averageCallSales && mostCallsCollaborator[1]["Total de Chamadas"] > 10) {
+             const whatsappCompensation = mostCallsCollaborator[1]["Vendas WhatsApp"] > 0 ? 
+                ` Porém, compensa com ${mostCallsCollaborator[1]["Vendas WhatsApp"]} vendas via WhatsApp.` : 
+                ' Foco em treinar abordagem de fechamento ou incentivar uso do WhatsApp.';
+                
+             const issueText = `${mostCallsCollaborator[0]} faz muitas ligações mas converte pouco.${whatsappCompensation}`;
              allInsights.push(
-                <InsightCard icon={<UserCheck/>} colorClass="text-purple-400" title="Análise de Colaborador" key="collaborator">
-                    <strong className="text-purple-400">{mostCallsCollaborator[0]}</strong> está com um volume de ligações alto, mas as vendas estão abaixo da média. Um ajuste no script de fechamento pode potencializar seus resultados.
+                <InsightCard 
+                  icon={<UserCheck/>} 
+                  colorClass="text-purple-400" 
+                  title="Análise de Colaborador" 
+                  key="collaborator"
+                  isClickable={true}
+                  onClick={() => setSelectedAnalysis({
+                    collaborator: mostCallsCollaborator[0],
+                    issue: issueText
+                  })}
+                >
+                    {issueText}
                 </InsightCard>
             );
         }
@@ -166,6 +267,19 @@ export const JarvisInsights = ({ aggregatedData, totalMetrics }: JarvisInsightsP
 
     return allInsights;
   }, [aggregatedData, totalMetrics, goals, isLoading]);
+
+  const teamAverages = useMemo(() => {
+    const totalCalls = totalMetrics.totalCalls;
+    const totalCallSales = totalMetrics.totalSales; // Apenas vendas por ligação
+    const avgCallsPerDay = totalCalls / Math.max(aggregatedData.length, 1);
+    
+    return {
+      conversionRate: totalCalls > 0 ? (totalCallSales / totalCalls) * 100 : 0, // Taxa de conversão só para ligações
+      avgCallsPerDay,
+      avgHoursPerDay: totalMetrics.totalHorasFaladas,
+      avgWhatsAppSales: totalMetrics.totalWhatsAppSales / Math.max(aggregatedData.length, 1)
+    };
+  }, [totalMetrics, aggregatedData]);
   
   if (isLoading) return <Card className="p-4 text-center text-sm text-muted-foreground">Jarvis está analisando os dados...</Card>
   if (insights.length === 0) return null; // Não mostra nada se não houver insights
@@ -184,6 +298,17 @@ export const JarvisInsights = ({ aggregatedData, totalMetrics }: JarvisInsightsP
         <div className="space-y-3">
             {insights}
         </div>
+        
+        {selectedAnalysis && (
+          <RootCauseAnalysis
+            isOpen={!!selectedAnalysis}
+            onClose={() => setSelectedAnalysis(null)}
+            collaboratorName={selectedAnalysis.collaborator}
+            issue={selectedAnalysis.issue}
+            rawData={rawData}
+            teamAverages={teamAverages}
+          />
+        )}
     </Card>
   );
 };

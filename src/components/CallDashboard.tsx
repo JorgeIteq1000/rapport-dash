@@ -44,6 +44,9 @@ interface CallData {
   "Horas Faladas": string;
   "Conversas em Andamento": number;
   Vendas: number;
+  "Vendas WhatsApp": number;
+  "Hora da Ligação": string;
+  "Tipo": "ligacao" | "whatsapp";
 }
 
 interface AggregatedData {
@@ -54,6 +57,8 @@ interface AggregatedData {
   "Horas Faladas": string;
   "Conversas em Andamento": number;
   Vendas: number;
+  "Vendas WhatsApp": number;
+  "Total Vendas": number; // Soma de vendas por ligação + WhatsApp
 }
 
 const timeStringToSeconds = (time: string): number => {
@@ -118,6 +123,8 @@ const aggregatedDataByCollaborator = useMemo(() => {
           "Horas Faladas": "00:00:00",
           "Conversas em Andamento": 0,
           Vendas: 0,
+          "Vendas WhatsApp": 0,
+          "Total Vendas": 0,
         };
       }
       const existing = acc[item.Colaborador];
@@ -130,6 +137,8 @@ const aggregatedDataByCollaborator = useMemo(() => {
       existing["Conversas em Andamento"] +=
         Number(item["Conversas em Andamento"]) || 0;
       existing.Vendas += Number(item.Vendas) || 0;
+      existing["Vendas WhatsApp"] += Number(item["Vendas WhatsApp"]) || 0;
+      existing["Total Vendas"] = existing.Vendas + existing["Vendas WhatsApp"];
 
       existing["Horas Faladas"] = sumTimeStrings(
         existing["Horas Faladas"],
@@ -140,8 +149,8 @@ const aggregatedDataByCollaborator = useMemo(() => {
     }, {} as Record<string, AggregatedData>);
 
     return Object.entries(aggregated).sort(([, a], [, b]) => {
-      if (b.Vendas !== a.Vendas) {
-        return b.Vendas - a.Vendas;
+      if (b["Total Vendas"] !== a["Total Vendas"]) {
+        return b["Total Vendas"] - a["Total Vendas"];
       }
       return (
         timeStringToSeconds(b["Horas Faladas"]) -
@@ -266,6 +275,8 @@ const aggregatedDataByCollaborator = useMemo(() => {
         0
       ),
       totalSales: collaboratorsData.reduce((sum, item) => sum + item.Vendas, 0),
+      totalWhatsAppSales: collaboratorsData.reduce((sum, item) => sum + item["Vendas WhatsApp"], 0),
+      totalAllSales: collaboratorsData.reduce((sum, item) => sum + item["Total Vendas"], 0),
       totalCollaborators: aggregatedDataByCollaborator.length,
     };
   }, [aggregatedDataByCollaborator]);
@@ -343,20 +354,25 @@ const aggregatedDataByCollaborator = useMemo(() => {
           </div>
         </div>
         
-        <GoalSetter 
-            collaborators={collaboratorNames}
-            onSaveGoal={handleSaveGoal}
-            goals={goals}
-            onDeleteGoal={handleDeleteGoal}
-            aggregatedData={aggregatedDataByCollaborator}
-          />          
+        <div className="text-center">
+          <Button 
+            onClick={() => window.open('/auth', '_blank')}
+            variant="outline"
+            className="bg-dashboard-primary/10 hover:bg-dashboard-primary/20 border-dashboard-primary/30"
+          >
+            🛡️ Área do Gestor
+          </Button>
+        </div>
 
         {/* JARVIS INSIGHTS */}
         {aggregatedMetrics && (
             <JarvisInsights 
                 aggregatedData={aggregatedDataByCollaborator}
+                rawData={filteredData}
                 totalMetrics={{
                     totalSales: aggregatedMetrics.totalSales,
+                    totalWhatsAppSales: aggregatedMetrics.totalWhatsAppSales,
+                    totalAllSales: aggregatedMetrics.totalAllSales,
                     totalCalls: aggregatedMetrics.totalCalls,
                     totalOutbound60: aggregatedMetrics.totalOutbound60,
                     totalInbound60: aggregatedMetrics.totalInbound60,
@@ -418,8 +434,22 @@ const aggregatedDataByCollaborator = useMemo(() => {
                 variant="default"
               />
               <MetricCard
-                title="Total de Vendas"
+                title="Vendas por Ligação"
                 value={aggregatedMetrics.totalSales}
+                icon={<TrendingUp className="w-6 h-6" />}
+                variant="success"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6">
+              <MetricCard
+                title="Vendas WhatsApp"
+                value={aggregatedMetrics.totalWhatsAppSales}
+                icon={<TrendingUp className="w-6 h-6" />}
+                variant="info"
+              />
+              <MetricCard
+                title="Total de Vendas"
+                value={aggregatedMetrics.totalAllSales}
                 icon={<TrendingUp className="w-6 h-6" />}
                 variant="success"
               />
@@ -430,11 +460,10 @@ const aggregatedDataByCollaborator = useMemo(() => {
         {/* Bloco de Metas do Mês */}
         {aggregatedMetrics && (
           <MonthlyGoals
-            currentVendas={aggregatedMetrics.totalSales}
+            currentVendas={aggregatedMetrics.totalAllSales}
             currentLigacoes={aggregatedMetrics.totalCalls}
             currentHorasFaladas={calculateTotalTime()}
-            dateRange={date} // <-- ESSA LINHA É ESSENCIAL
-
+            dateRange={date}
           />
         )}
         
@@ -456,7 +485,7 @@ const aggregatedDataByCollaborator = useMemo(() => {
           <div className="space-y-6">
             <h2 className="text-lg md:text-2xl font-bold flex items-center gap-2 px-2">
               <Users className="w-5 h-5 md:w-6 md:h-6 text-dashboard-primary" />
-              Dados Individuais por Vendas
+              Dados Individuais por Total de Vendas
             </h2>
 
             <div className="bg-dashboard-card border border-dashboard-card-border rounded-lg shadow-card overflow-hidden">
@@ -468,7 +497,13 @@ const aggregatedDataByCollaborator = useMemo(() => {
                                 Colaborador
                             </th>
                              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
-                                Vendas
+                                Total Vendas
+                            </th>
+                             <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                                Vendas Ligação
+                            </th>
+                             <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
+                                Vendas WhatsApp
                             </th>
                              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
                                 Horas Faladas
@@ -504,8 +539,14 @@ const aggregatedDataByCollaborator = useMemo(() => {
                                     </div>
                                 </td>
                                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-semibold text-dashboard-success">
+                                    {item["Total Vendas"]}
+                                 </td>
+                                 <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-dashboard-success">
                                     {item.Vendas}
-                                </td>
+                                 </td>
+                                 <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-dashboard-info">
+                                    {item["Vendas WhatsApp"]}
+                                 </td>
                                 <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-foreground">
                                     {item["Horas Faladas"]}
                                 </td>

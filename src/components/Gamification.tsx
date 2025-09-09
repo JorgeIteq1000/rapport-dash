@@ -16,7 +16,7 @@ interface GamificationProps {
 }
 
 export function Gamification({ aggregatedData, unlockedAchievements }: GamificationProps) {
-  const leaderboardData = [...aggregatedData].sort((a, b) => b[1].Vendas - a[1].Vendas);
+  const leaderboardData = [...aggregatedData].sort((a, b) => b[1]["Total Vendas"] - a[1]["Total Vendas"]);
 
   return (
     <div className="space-y-6">
@@ -45,7 +45,7 @@ export function Gamification({ aggregatedData, unlockedAchievements }: Gamificat
                   <TableRow key={name}>
                     <TableCell className="font-bold">{index + 1}</TableCell>
                     <TableCell>{name}</TableCell>
-                    <TableCell className="text-right font-semibold text-dashboard-success">{data.Vendas}</TableCell>
+                    <TableCell className="text-right font-semibold text-dashboard-success">{data["Total Vendas"]}</TableCell>
                     <TableCell className="text-right">{data['Total de Chamadas']}</TableCell>
                   </TableRow>
                 ))}
