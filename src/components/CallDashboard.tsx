@@ -20,6 +20,7 @@ import {
   Crown,
   Award,
 } from "lucide-react";
+import { TopPerformerCard } from "./TopPerformerCard";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -245,6 +246,15 @@ export const CallDashboard = () => {
             🛡️ Área do Gestor
           </Button>
         </div>
+
+        {/* TOP PERFORMER CARD */}
+        {aggregatedDataByCollaborator.length > 0 && (
+          <TopPerformerCard 
+            topPerformer={aggregatedDataByCollaborator[0]}
+            goalData={goals.find(goal => goal.collaborator === aggregatedDataByCollaborator[0][0])}
+            selectedDateRange={date}
+          />
+        )}
 
         {/* JARVIS INSIGHTS */}
         {aggregatedMetrics && (
