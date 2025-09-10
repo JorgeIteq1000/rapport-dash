@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { GoalSetter } from '@/components/GoalSetter';
 import { Goal } from '@/components/GoalSetter';
 import { CollaboratorsPanel } from '@/components/CollaboratorsPanel';
+import { useCollaborators } from '@/hooks/useCollaborators';
 
 export default function AdminArea() {
   const [user, setUser] = useState<User | null>(null);
@@ -16,6 +17,14 @@ export default function AdminArea() {
   const [loading, setLoading] = useState(true);
   const [goals, setGoals] = useState<Goal[]>([]);
   const navigate = useNavigate();
+  
+  // Hook para buscar colaboradores do Supabase
+  const { collaborators: allCollaborators, loading: loadingCollaborators } = useCollaborators();
+  
+  // Filtrar apenas colaboradores ativos e extrair os nomes
+  const activeCollaboratorNames = allCollaborators
+    .filter(collaborator => collaborator.ativo)
+    .map(collaborator => collaborator.nome);
 
   useEffect(() => {
     // Set up auth state listener
@@ -152,7 +161,7 @@ export default function AdminArea() {
                   goals={goals}
                   onSaveGoal={handleSaveGoal}
                   onDeleteGoal={handleDeleteGoal}
-                  collaborators={[]} // This will be populated from main dashboard
+                  collaborators={activeCollaboratorNames}
                   aggregatedData={[]} // Empty for now, will be populated later
                 />
               </CardContent>
