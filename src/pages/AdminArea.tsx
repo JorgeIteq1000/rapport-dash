@@ -9,22 +9,16 @@ import { toast } from 'sonner';
 import { GoalSetter } from '@/components/GoalSetter';
 import { Goal } from '@/components/GoalSetter';
 import { CollaboratorsPanel } from '@/components/CollaboratorsPanel';
-import { useCollaborators } from '@/hooks/useCollaborators';
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 export default function AdminArea() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [goals, setGoals] = useState<Goal[]>([]);
   const navigate = useNavigate();
   
-  // Hook para buscar colaboradores do Supabase
-  const { collaborators: allCollaborators, loading: loadingCollaborators } = useCollaborators();
-  
-  // Filtrar apenas colaboradores ativos e extrair os nomes
-  const activeCollaboratorNames = allCollaborators
-    .filter(collaborator => collaborator.ativo)
-    .map(collaborator => collaborator.nome);
+  // Usar os colaboradores do contexto da planilha
+  const { collaborators, goals, onSaveGoal, onDeleteGoal, aggregatedDataByCollaborator } = useDashboardData();
 
   useEffect(() => {
     // Set up auth state listener
@@ -54,18 +48,6 @@ export default function AdminArea() {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  // Load goals from localStorage
-  useEffect(() => {
-    const savedGoals = localStorage.getItem('individualGoals');
-    if (savedGoals) {
-      try {
-        setGoals(JSON.parse(savedGoals));
-      } catch (error) {
-        console.error('Error loading goals:', error);
-      }
-    }
-  }, []);
-
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -74,20 +56,6 @@ export default function AdminArea() {
       toast.success('Logout realizado com sucesso!');
       navigate('/');
     }
-  };
-
-  const handleSaveGoal = (goal: Goal) => {
-    const updatedGoals = [...goals, goal];
-    setGoals(updatedGoals);
-    localStorage.setItem('individualGoals', JSON.stringify(updatedGoals));
-    toast.success('Meta salva com sucesso!');
-  };
-
-  const handleDeleteGoal = (goalId: string) => {
-    const updatedGoals = goals.filter(goal => goal.id !== goalId);
-    setGoals(updatedGoals);
-    localStorage.setItem('individualGoals', JSON.stringify(updatedGoals));
-    toast.success('Meta removida com sucesso!');
   };
 
   if (loading) {
@@ -159,10 +127,10 @@ export default function AdminArea() {
                 </p>
                 <GoalSetter
                   goals={goals}
-                  onSaveGoal={handleSaveGoal}
-                  onDeleteGoal={handleDeleteGoal}
-                  collaborators={activeCollaboratorNames}
-                  aggregatedData={[]} // Empty for now, will be populated later
+                  onSaveGoal={onSaveGoal}
+                  onDeleteGoal={onDeleteGoal}
+                  collaborators={collaborators}
+                  aggregatedData={aggregatedDataByCollaborator}
                 />
               </CardContent>
             </Card>
@@ -215,7 +183,7 @@ export default function AdminArea() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDeleteGoal(goal.id)}
+                        onClick={() => onDeleteGoal(goal.id)}
                       >
                         Remover
                       </Button>

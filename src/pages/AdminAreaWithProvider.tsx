@@ -1,12 +1,10 @@
-import { CallDashboard } from "@/components/CallDashboard";
 import { DashboardDataProvider } from "@/contexts/DashboardDataContext";
+import AdminArea from "./AdminArea";
 
-const Index = () => {
+export default function AdminAreaWithProvider() {
   return (
     <DashboardDataProvider>
-      <CallDashboard />
+      <AdminArea />
     </DashboardDataProvider>
   );
-};
-
-export default Index;
+}

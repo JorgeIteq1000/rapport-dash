@@ -22,6 +22,8 @@ interface CallData {
   "Conversas em Andamento": number;
   Vendas: number;
   "Vendas WhatsApp": number;
+  "Hora da Ligação": string;
+  "Tipo": "ligacao" | "whatsapp";
 }
 
 interface AggregatedData {

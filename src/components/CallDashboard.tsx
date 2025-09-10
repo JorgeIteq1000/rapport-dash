@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { GoalSetter, Goal } from "./GoalSetter"; // Nosso novo componente de formulário
 import { IndividualGoals } from "./IndividualGoals"; // Nosso novo componente de display
 import { useState, useMemo } from "react";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { MetricCard } from "./MetricCard";
 import { DataUploader } from "./DataUploader";
 import { DateRange } from "react-day-picker";
@@ -85,147 +86,28 @@ const sumTimeStrings = (time1: string, time2: string): string => {
 };
 
 export const CallDashboard = () => {
-  const [data, setData] = useState<CallData[]>([]);
-  const [date, setDate] = useState<DateRange | undefined>({
-    from: new Date(),
-    to: new Date(),
-  });
+  const { 
+    data, 
+    handleDataLoad, 
+    filteredData, 
+    aggregatedDataByCollaborator, 
+    collaborators,
+    goals,
+    onSaveGoal,
+    onDeleteGoal,
+    unlockedAchievements,
+    date,
+    setDate
+  } = useDashboardData();
 
-  const [unlockedAchievements, setUnlockedAchievements] = useState<Record<string, string[]>>({});
-
-const filteredData = useMemo(() => {
-    if (!date?.from) return [];
-
-    const parseDate = (dateStr: string) => {
-      const parsedDate = parse(dateStr, "dd/MM/yyyy", new Date());
-      return isValid(parsedDate) ? parsedDate : null;
-    };
-
-    return data.filter((item) => {
-      const itemDate = parseDate(item.Data);
-      if (!itemDate) return false;
-
-      const fromDate = date.from!;
-      const toDate = date.to || date.from;
-
-      return itemDate >= fromDate && itemDate <= toDate;
-    });
-  }, [data, date]);
-
-const aggregatedDataByCollaborator = useMemo(() => {
-    const aggregated = filteredData.reduce((acc, item) => {
-      if (!acc[item.Colaborador]) {
-        acc[item.Colaborador] = {
-          "Total de Chamadas": 0,
-          "Chamadas Efetuadas + 60": 0,
-          "Chamadas Recebidas + 60": 0,
-          "Ligações Menos 60": 0,
-          "Horas Faladas": "00:00:00",
-          "Conversas em Andamento": 0,
-          Vendas: 0,
-          "Vendas WhatsApp": 0,
-          "Total Vendas": 0,
-        };
-      }
-      const existing = acc[item.Colaborador];
-      existing["Total de Chamadas"] += Number(item["Total de Chamadas"]) || 0;
-      existing["Chamadas Efetuadas + 60"] +=
-        Number(item["Chamadas Efetuadas + 60"]) || 0;
-      existing["Chamadas Recebidas + 60"] +=
-        Number(item["Chamadas Recebidas + 60"]) || 0;
-      existing["Ligações Menos 60"] += Number(item["Ligações Menos 60"]) || 0;
-      existing["Conversas em Andamento"] +=
-        Number(item["Conversas em Andamento"]) || 0;
-      existing.Vendas += Number(item.Vendas) || 0;
-      existing["Vendas WhatsApp"] += Number(item["Vendas WhatsApp"]) || 0;
-      existing["Total Vendas"] = existing.Vendas + existing["Vendas WhatsApp"];
-
-      existing["Horas Faladas"] = sumTimeStrings(
-        existing["Horas Faladas"],
-        item["Horas Faladas"] || "00:00:00"
-      );
-
-      return acc;
-    }, {} as Record<string, AggregatedData>);
-
-    return Object.entries(aggregated).sort(([, a], [, b]) => {
-      if (b["Total Vendas"] !== a["Total Vendas"]) {
-        return b["Total Vendas"] - a["Total Vendas"];
-      }
-      return (
-        timeStringToSeconds(b["Horas Faladas"]) -
-        timeStringToSeconds(a["Horas Faladas"])
-      );
-    });
-  }, [filteredData]);
-
-
-
-  useEffect(() => {
-    if (aggregatedDataByCollaborator.length === 0) return;
-
-    const newUnlocked: Record<string, string[]> = {};
-    const allData = aggregatedDataByCollaborator;
-
-    allData.forEach(([name, data]) => {
-      newUnlocked[name] = [];
-      achievementsList.forEach(achievement => {
-        if (achievement.condition(data, allData)) {
-          newUnlocked[name].push(achievement.id);
-
-          // Lógica de notificação: a conquista é nova?
-          const wasAlreadyUnlocked = unlockedAchievements[name]?.includes(achievement.id);
-          if (!wasAlreadyUnlocked) {
-            toast.success(`🏆 ${name} desbloqueou: ${achievement.name}!`);
-          }
-        }
-      });
-    });
-
-    setUnlockedAchievements(newUnlocked);
-
-  }, [aggregatedDataByCollaborator]); // Roda quando os dados agregados mudam
-
-  const [goals, setGoals] = useState<Goal[]>([]); // Estado para as metas
-
-  useEffect(() => {
-    // log: Carregando metas do localStorage
-    console.log('Carregando metas individuais do localStorage...');
-    try {
-      const storedGoals = localStorage.getItem('individualGoals');
-      if (storedGoals) {
-        setGoals(JSON.parse(storedGoals));
-      }
-    } catch (error) {
-      console.error("Falha ao carregar metas individuais", error);
-      toast.error("Não foi possível carregar as metas individuais.");
-    }
-  }, []);
-
-  const handleSaveGoal = (newGoal: Goal) => {
-    const updatedGoals = [...goals, newGoal];
-    setGoals(updatedGoals);
-    localStorage.setItem('individualGoals', JSON.stringify(updatedGoals));
-  };
-
-  const handleDeleteGoal = (goalId: string) => {
-    const updatedGoals = goals.filter(g => g.id !== goalId);
-    setGoals(updatedGoals);
-    localStorage.setItem('individualGoals', JSON.stringify(updatedGoals));
-    toast.info("Meta individual removida.");
-  }
-
-  const handleDataLoad = (newData: CallData[]) => {
-    setData(newData);
-  };
+// Agora usamos os dados do contexto - removemos toda a lógica duplicada
 
   
 
   
 
-  const collaboratorNames = useMemo(() => {
-    return aggregatedDataByCollaborator.map(([name]) => name);
-  }, [aggregatedDataByCollaborator]);
+  // Usamos os colaboradores do contexto
+  const collaboratorNames = collaborators;
 
   const top5ByHours = useMemo(() => {
     return [...aggregatedDataByCollaborator]
