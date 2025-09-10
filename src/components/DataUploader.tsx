@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { RefreshCw, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CallData {
   "Data": string;
@@ -62,6 +63,7 @@ export const DataUploader = ({ onDataLoad }: DataUploaderProps) => {
       const jsonData = csvToJson(csvText);
       
       onDataLoad(jsonData);
+      await syncCollaboratorsToSupabase(jsonData);
       setLastUpdate(new Date());
       toast.success(`${jsonData.length} registro(s) carregado(s) do Google Sheets!`);
     } catch (error) {
@@ -143,6 +145,38 @@ export const DataUploader = ({ onDataLoad }: DataUploaderProps) => {
     }
     
     return jsonArray;
+  };
+
+  const syncCollaboratorsToSupabase = async (data: CallData[]) => {
+    try {
+      // Extrair colaboradores únicos dos dados
+      const uniqueCollaborators = Array.from(
+        new Set(data.map(item => item.Colaborador))
+      ).filter(name => name && name.trim() !== '');
+
+      // Para cada colaborador único, fazer upsert no Supabase
+      for (const colaboradorNome of uniqueCollaborators) {
+        const { error } = await supabase
+          .from('colaboradores_ativos')
+          .upsert(
+            {
+              nome: colaboradorNome,
+              bitrix_id: `auto_${colaboradorNome.toLowerCase().replace(/\s+/g, '_')}`,
+              ativo: true
+            }
+          );
+
+        if (error) {
+          console.error(`Erro ao inserir colaborador ${colaboradorNome}:`, error);
+        }
+      }
+
+      console.log(`${uniqueCollaborators.length} colaboradores sincronizados com Supabase`);
+      toast.success(`${uniqueCollaborators.length} colaboradores sincronizados!`);
+    } catch (error) {
+      console.error('Erro ao sincronizar colaboradores:', error);
+      toast.error('Erro ao sincronizar colaboradores com o banco de dados');
+    }
   };
 
   const sumTimeFields = (time1: string, time2: string): string => {
