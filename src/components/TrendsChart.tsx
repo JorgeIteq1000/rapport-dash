@@ -10,9 +10,11 @@ const timeStringToDecimalHours = (time: string): number => {
     return h + m / 60 + s / 3600;
 };
 
+// Interface atualizada para incluir Vendas WhatsApp
 interface CallData {
   Data: string;
   Vendas: number;
+  "Vendas WhatsApp": number; // Adicionado para o cálculo
   "Total de Chamadas": number;
   "Horas Faladas": string;
 }
@@ -48,7 +50,9 @@ export const TrendsChart = ({ data, dateRange }: TrendsChartProps) => {
                 const formattedDay = format(itemDate, 'dd/MM');
                 const dayData = dailyData.find(d => d.name === formattedDay);
                 if (dayData) {
-                    dayData.Vendas += Number(item.Vendas) || 0;
+                    // LOG: CORREÇÃO APLICADA AQUI!
+                    // Agora somamos tanto 'Vendas' quanto 'Vendas WhatsApp'
+                    dayData.Vendas += (Number(item.Vendas) || 0) + (Number(item["Vendas WhatsApp"]) || 0);
                     dayData.Chamadas += Number(item['Total de Chamadas']) || 0;
                     dayData['Horas Faladas'] += timeStringToDecimalHours(item["Horas Faladas"]);
                 }
