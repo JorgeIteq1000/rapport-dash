@@ -189,7 +189,7 @@ export const RootCauseAnalysis = ({ isOpen, onClose, collaboratorName, issue, ra
                       <span>{turn.metrics.calls}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Vendas:</span>
+                      <span>Inscrições:</span>
                       <span>{turn.metrics.sales}</span>
                     </div>
                     <div className="flex justify-between">

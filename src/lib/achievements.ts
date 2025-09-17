@@ -13,8 +13,8 @@ export interface Achievement {
 export const achievementsList: Achievement[] = [
   {
     id: 'vendas_5',
-    name: 'Máquina de Vendas',
-    description: 'Atingiu a marca de 5 vendas no período.',
+    name: 'Máquina de Inscrições',
+    description: 'Atingiu a marca de 5 inscrições no período.',
     icon: Award,
     condition: (collaboratorData) => collaboratorData["Total Vendas"] >= 5,
   },
@@ -28,7 +28,7 @@ export const achievementsList: Achievement[] = [
   {
     id: 'melhor_vendedor',
     name: 'Rei do Pedaço',
-    description: 'Foi o colaborador com mais vendas do período.',
+    description: 'Foi o colaborador com mais inscrições do período.',
     icon: Crown,
     condition: (collaboratorData, allCollaboratorsData) => {
       const maxVendas = Math.max(...allCollaboratorsData.map(c => c[1]["Total Vendas"]));
@@ -37,8 +37,8 @@ export const achievementsList: Achievement[] = [
   },
   {
     id: 'iniciador',
-    name: 'Abridor de Trabalhos',
-    description: 'Fez a primeira venda do time no período selecionado.',
+    name: 'Pole Position do Time',
+    description: 'Fez a primeira inscrição do time no período selecionado.',
     icon: Rocket,
     condition: (collaboratorData, allCollaboratorsData) => {
         // Lógica simplificada: dá a medalha ao melhor vendedor total.

@@ -189,7 +189,7 @@ export const JarvisInsights = ({ aggregatedData, rawData, totalMetrics }: Jarvis
     if (collaboratorsWithStats.length > 1) {
         const lowestConversion = collaboratorsWithStats.sort((a,b) => a.conversionRate - b.conversionRate)[0];
         if (lowestConversion.conversionRate < teamConversionRate / 2 && teamConversionRate > 0) {
-             const issueText = `A taxa de conversão de ${lowestConversion.name} (${lowestConversion.conversionRate.toFixed(1)}%) está baixa em ligações, mas ${lowestConversion.whatsappSales > 0 ? `compensa com ${lowestConversion.whatsappSales} vendas via WhatsApp` : 'não tem vendas por WhatsApp registradas'}.`;
+             const issueText = `A taxa de conversão de ${lowestConversion.name} (${lowestConversion.conversionRate.toFixed(1)}%) está baixa em ligações, mas ${lowestConversion.whatsappSales > 0 ? `compensa com ${lowestConversion.whatsappSales} inscrições via WhatsApp` : 'não tem vendas por WhatsApp registradas'}.`;
              allInsights.push(
                 <InsightCard 
                   icon={<AlertTriangle/>} 
@@ -214,7 +214,7 @@ export const JarvisInsights = ({ aggregatedData, rawData, totalMetrics }: Jarvis
      const topPerformerByWhatsApp = [...aggregatedData].filter(([, data]) => data["Vendas WhatsApp"] > 0).sort(([, a], [, b]) => b["Vendas WhatsApp"] - a["Vendas WhatsApp"])[0];
      
      if (topPerformerByTotal && topPerformerByTotal[1]["Total Vendas"] > 0) {
-          let strategyText = `${topPerformerByTotal[0]} é o líder geral de vendas`;
+          let strategyText = `${topPerformerByTotal[0]} é o líder geral de inscrições`;
           
           if (topPerformerByCall && topPerformerByWhatsApp) {
             if (topPerformerByCall[0] === topPerformerByWhatsApp[0]) {
@@ -225,7 +225,7 @@ export const JarvisInsights = ({ aggregatedData, rawData, totalMetrics }: Jarvis
           } else if (topPerformerByCall) {
             strategyText += `, focando em conversão por ligações.`;
           } else if (topPerformerByWhatsApp) {
-            strategyText += `, focando em vendas via WhatsApp.`;
+            strategyText += `, focando em inscrições via WhatsApp.`;
           }
           
           allInsights.push(
@@ -243,7 +243,7 @@ export const JarvisInsights = ({ aggregatedData, rawData, totalMetrics }: Jarvis
 
         if (mostCallsCollaborator && mostCallsCollaborator[1].Vendas < averageCallSales && mostCallsCollaborator[1]["Total de Chamadas"] > 10) {
              const whatsappCompensation = mostCallsCollaborator[1]["Vendas WhatsApp"] > 0 ? 
-                ` Porém, compensa com ${mostCallsCollaborator[1]["Vendas WhatsApp"]} vendas via WhatsApp.` : 
+                ` Porém, compensa com ${mostCallsCollaborator[1]["Vendas WhatsApp"]} inscrições via WhatsApp.` : 
                 ' Foco em treinar abordagem de fechamento ou incentivar uso do WhatsApp.';
                 
              const issueText = `${mostCallsCollaborator[0]} faz muitas ligações mas converte pouco.${whatsappCompensation}`;

@@ -288,7 +288,7 @@ const analyzeMetric = (current: number, goal: number, unit: string, metricName: 
         </span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <GoalCard title="Vendas" icon={<TrendingUp />} analysis={analysis.vendas} unit="un" />
+          <GoalCard title="Inscrições" icon={<TrendingUp />} analysis={analysis.vendas} unit="un" />
           <GoalCard title="Ligações" icon={<Phone />} analysis={analysis.ligacoes} unit="un" />
           {/* A análise de 'horas' já usa o valor em segundos para cálculo e formatação */}
           <GoalCard title="Horas Faladas" icon={<Clock />} analysis={analysis.horas} unit="h" />

@@ -55,9 +55,9 @@ export const Achievements = ({ data }: AchievementsProps) => {
                 Destaques do Período
             </h2>
             <div className="space-y-4">
-                <AchievementCard icon={<Crown className="w-8 h-8"/>} title="Rei das Vendas" collaborator={kingOfSales[0]} value={kingOfSales[1]["Total Vendas"]} />
+                <AchievementCard icon={<Crown className="w-8 h-8"/>} title="Rei das Inscrições" collaborator={kingOfSales[0]} value={kingOfSales[1]["Total Vendas"]} />
                 <AchievementCard icon={<Clock className="w-8 h-8"/>} title="Maratonista da Voz" collaborator={marathonRunner[0]} value={marathonRunner[1]["Horas Faladas"]} />
-                <AchievementCard icon={<TrendingUp className="w-8 h-8"/>} title="Sniper de Vendas" collaborator={salesSniper.name} value={`${salesSniper.conversionRate.toFixed(1)}%`} />
+                <AchievementCard icon={<TrendingUp className="w-8 h-8"/>} title="Sniper" collaborator={salesSniper.name} value={`${salesSniper.conversionRate.toFixed(1)}%`} />
                 <AchievementCard icon={<Zap className="w-8 h-8"/>} title="Super Ligeiro" collaborator={quickStriker[0]} value={quickStriker[1]["Ligações Menos 60"]} />
             </div>
         </div>

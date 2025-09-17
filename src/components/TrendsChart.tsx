@@ -84,7 +84,7 @@ export const TrendsChart = ({ data, dateRange }: TrendsChartProps) => {
                         labelStyle={{ color: 'hsl(var(--foreground))' }}
                     />
                     <Legend wrapperStyle={{fontSize: "12px"}}/>
-                    <Line yAxisId="left" type="monotone" dataKey="Vendas" stroke="#10b981" strokeWidth={2} name="Vendas" dot={false} />
+                    <Line yAxisId="left" type="monotone" dataKey="Vendas" stroke="#10b981" strokeWidth={2} name="Inscrições" dot={false} />
                     <Line yAxisId="right" type="monotone" dataKey="Chamadas" stroke="#3b82f6" strokeWidth={2} name="Total de Chamadas" dot={false}/>
                     <Line yAxisId="left" type="monotone" dataKey="Horas Faladas" stroke="#f59e0b" strokeWidth={2} name="Horas Faladas" dot={false}/>
                 </LineChart>

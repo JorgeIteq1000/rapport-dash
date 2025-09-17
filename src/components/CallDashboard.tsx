@@ -189,8 +189,7 @@ export const CallDashboard = () => {
             </h1>
           </div>
           <p className="text-base md:text-xl text-muted-foreground px-2">
-            Monitore e analise o desempenho da sua equipe de vendas em tempo
-            real
+            Monitoramento e análise do desempenho da equipe Alpha
           </p>
         </div>
 
@@ -326,7 +325,7 @@ export const CallDashboard = () => {
                 variant="default"
               />
               <MetricCard
-                title="Vendas por Ligação"
+                title="Inscrições por Ligação"
                 value={aggregatedMetrics.totalSales}
                 icon={<TrendingUp className="w-6 h-6" />}
                 variant="success"
@@ -334,13 +333,13 @@ export const CallDashboard = () => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6">
               <MetricCard
-                title="Vendas WhatsApp"
+                title="Inscrições WhatsApp"
                 value={aggregatedMetrics.totalWhatsAppSales}
                 icon={<TrendingUp className="w-6 h-6" />}
                 variant="info"
               />
               <MetricCard
-                title="Total de Vendas"
+                title="Total de Inscrições"
                 value={aggregatedMetrics.totalAllSales}
                 icon={<TrendingUp className="w-6 h-6" />}
                 variant="success"
@@ -377,7 +376,7 @@ export const CallDashboard = () => {
           <div className="space-y-6">
             <h2 className="text-lg md:text-2xl font-bold flex items-center gap-2 px-2">
               <Users className="w-5 h-5 md:w-6 md:h-6 text-dashboard-primary" />
-              Dados Individuais por Total de Vendas
+              Dados Individuais por Total de Inscrições
             </h2>
 
             <div className="bg-dashboard-card border border-dashboard-card-border rounded-lg shadow-card overflow-hidden">
@@ -389,13 +388,13 @@ export const CallDashboard = () => {
                                 Colaborador
                             </th>
                              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
-                                Total Vendas
+                                Total Inscrições
                             </th>
                              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
-                                Vendas Ligação
+                                Inscrições Ligação
                             </th>
                              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
-                                Vendas WhatsApp
+                                Inscrições WhatsApp
                             </th>
                              <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-dashboard-primary uppercase tracking-wider">
                                 Horas Faladas

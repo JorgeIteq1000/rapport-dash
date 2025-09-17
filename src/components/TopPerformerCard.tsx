@@ -153,7 +153,7 @@ export const TopPerformerCard = ({ topPerformer, goalData, selectedDateRange }: 
             </div>
             <div className="text-right">
               <p className="text-2xl font-bold text-yellow-200">{data["Total Vendas"]}</p>
-              <p className="text-sm text-white/80">vendas realizadas</p>
+              <p className="text-sm text-white/80">Inscrições realizadas</p>
             </div>
           </div>
 
@@ -177,11 +177,11 @@ export const TopPerformerCard = ({ topPerformer, goalData, selectedDateRange }: 
                 <div className="bg-white/10 rounded-lg p-3 text-center backdrop-blur-sm">
                   <MessageCircle className="w-4 h-4 mx-auto mb-1 text-white/90" />
                   <p className="text-sm font-semibold text-white">{data["Conversas em Andamento"]}</p>
-                  <p className="text-xs text-white/70">Pipeline</p>
+                  <p className="text-xs text-white/70">Conversas</p>
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Conversas em andamento com potencial de venda</p>
+                <p>Conversas em andamento com potencial de inscrição</p>
               </TooltipContent>
             </Tooltip>
 

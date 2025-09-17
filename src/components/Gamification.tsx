@@ -28,7 +28,7 @@ export function Gamification({ aggregatedData, unlockedAchievements }: Gamificat
         {/* Leaderboard */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">Placar de Líderes (Vendas)</CardTitle>
+            <CardTitle className="flex items-center gap-2">Placar de Líderes (Inscrições)</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -36,7 +36,7 @@ export function Gamification({ aggregatedData, unlockedAchievements }: Gamificat
                 <TableRow>
                   <TableHead className="w-[50px]">#</TableHead>
                   <TableHead>Colaborador</TableHead>
-                  <TableHead className="text-right">Vendas</TableHead>
+                  <TableHead className="text-right">Inscrições</TableHead>
                   <TableHead className="text-right">Chamadas</TableHead>
                 </TableRow>
               </TableHeader>
