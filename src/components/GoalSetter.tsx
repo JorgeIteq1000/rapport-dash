@@ -94,7 +94,7 @@ export function GoalSetter({ collaborators, onSaveGoal, goals, onDeleteGoal, agg
                 <SelectValue placeholder="Selecione a métrica" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Vendas">Vendas</SelectItem>
+                <SelectItem value="Vendas">Inscrições</SelectItem>
                 <SelectItem value="Total de Chamadas">Total de Chamadas</SelectItem>
                 <SelectItem value="Horas Faladas">Horas Faladas</SelectItem>
               </SelectContent>
