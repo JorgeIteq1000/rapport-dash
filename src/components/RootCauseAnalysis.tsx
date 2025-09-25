@@ -177,9 +177,9 @@ export const RootCauseAnalysis = ({ isOpen, onClose, collaboratorName, issue, ra
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
-                { name: 'Manhã (6h-12h)', metrics: analysis.morningMetrics },
+                { name: 'Manhã (9h-12h)', metrics: analysis.morningMetrics },
                 { name: 'Tarde (12h-18h)', metrics: analysis.afternoonMetrics },
-                { name: 'Noite (18h-6h)', metrics: analysis.eveningMetrics }
+                { name: 'Noite (18h-19h)', metrics: analysis.eveningMetrics }
               ].map((turn) => (
                 <Card key={turn.name} className="p-3">
                   <h4 className="font-medium text-sm mb-2">{turn.name}</h4>
