@@ -126,37 +126,83 @@ export const JarvisInsights = ({
     issue: string;
   } | null>(null);
 
-  // LOG: Busca as metas da planilha (igual antes)
+  // LOG: Busca as metas da planilha (ATUALIZADO PARA LINK PÚBLICO)
   useEffect(() => {
     const fetchGoals = async () => {
       setIsLoading(true);
       try {
-        const spreadsheetId = "1iplPuPAD2rYDVdon4DWJhfrENiEKvCqU94N5ZArfImM";
-        const gid = "97162365";
-        const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${gid}`;
+        console.log(
+          "LOG (Insights): Iniciando busca de metas via CSV Publicado..."
+        );
+
+        // --- ⚠️ ATENÇÃO: SUBSTITUA PELO NOVO LINK DA ABA "METAS" ---
+        // O link abaixo é o mesmo de Dados e causará erro. Gere um novo para a aba Metas.
+        const csvUrl =
+          "https://docs.google.com/spreadsheets/d/e/2PACX-1vRvxijQtAooNRrWzlYi5rmXeSLBDQfcN27Iud4WvFu5_k4XzxYFabSKp1zWC_couTJ14kjdl0eF0j4T/pub?output=csv";
+
         const response = await fetch(csvUrl);
-        if (!response.ok)
-          throw new Error("Erro ao acessar a planilha de metas.");
+        if (!response.ok) {
+          throw new Error(`Erro HTTP ao acessar metas: ${response.status}`);
+        }
+
         const csvText = await response.text();
+        console.log(
+          "LOG (Insights): CSV de metas recebido. Tamanho:",
+          csvText.length
+        );
+
         const lines = csvText.split("\n").map((l) => l.split(","));
         const goalsData: Record<string, string> = {};
+
         lines.forEach(([key, value]) => {
-          if (key && value) goalsData[key.trim()] = value.trim();
+          if (key && value) {
+            // Limpeza de aspas e espaços para garantir leitura correta
+            const cleanKey = key.replace(/"/g, "").trim();
+            const cleanValue = value.replace(/"/g, "").trim();
+            goalsData[cleanKey] = cleanValue;
+          }
         });
+
+        // --- DIAGNÓSTICO DO JARVIS ---
+        // Se não encontrarmos a chave "meta_vendas", provavelmente estamos lendo a planilha errada.
+        if (
+          !goalsData.meta_vendas &&
+          !goalsData.Meta_Vendas &&
+          !goalsData["meta_vendas"]
+        ) {
+          console.warn(
+            "LOG (Insights): ALERTA - Chaves de meta não encontradas! Conteúdo recebido:",
+            goalsData
+          );
+          throw new Error(
+            "O link CSV parece ser da aba de DADOS ou está incorreto. Gere o link para a aba METAS."
+          );
+        }
+
+        console.log(
+          "LOG (Insights): Metas processadas com sucesso:",
+          goalsData
+        );
+
         const parsedDate = parse(
-          goalsData.data_final,
+          goalsData.data_final || "",
           "dd/MM/yyyy",
           new Date()
         );
+
         setGoals({
           vendas: Number(goalsData.meta_vendas) || 0,
           ligacoes: Number(goalsData.meta_ligacoes) || 0,
           horas: timeStringToSeconds(goalsData.meta_horas || "0"),
           endDate: isValid(parsedDate) ? parsedDate : null,
         });
-      } catch (error) {
-        console.error("LOG (Insights): Erro ao buscar metas:", error);
-        toast.error("Jarvis Insights: Não foi possível carregar as metas.");
+      } catch (error: any) {
+        console.error("LOG (Insights): Erro crítico ao buscar metas:", error);
+        // Mostra o erro específico se for o nosso diagnóstico, senão mostra erro genérico
+        const errorMessage = error.message.includes("O link CSV parece ser")
+          ? error.message
+          : "Jarvis Insights: Não foi possível carregar as metas.";
+        toast.error(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -165,9 +211,7 @@ export const JarvisInsights = ({
   }, []);
 
   const insights = useMemo(() => {
-    console.log(
-      "LOG (Insights): Analisando dados para gerar todos os insights..."
-    );
+    // console.log("LOG (Insights): Analisando dados para gerar todos os insights..."); // Reduzindo logs repetitivos
     if (isLoading || !goals || aggregatedData.length === 0) {
       return [];
     }
@@ -187,34 +231,36 @@ export const JarvisInsights = ({
         const currentHours = timeStringToSeconds(
           totalMetrics.totalHorasFaladas
         );
-        const progressPercentage = (currentHours / goals.horas) * 100;
 
-        if (currentHours > expectedHours * 1.05) {
-          // Se estiver 5% acima do esperado
-          const percentageAbove = (currentHours / expectedHours - 1) * 100;
-          const topContributor = [...aggregatedData].sort(
-            ([, a], [, b]) =>
-              timeStringToSeconds(b["Horas Faladas"]) -
-              timeStringToSeconds(a["Horas Faladas"])
-          )[0];
-          allInsights.push(
-            <InsightCard
-              icon={<TrendingUp />}
-              colorClass="text-dashboard-success"
-              title="Destaque Positivo"
-              key="positive"
-            >
-              Parabéns! A equipe está{" "}
-              <strong className="text-dashboard-success">
-                {percentageAbove.toFixed(0)}%
-              </strong>{" "}
-              à frente da meta proporcional de horas. O colaborador{" "}
-              <strong className="text-dashboard-success">
-                {topContributor[0]}
-              </strong>{" "}
-              é o maior contribuinte.
-            </InsightCard>
-          );
+        // Verificação de segurança para divisão por zero
+        if (goals.horas > 0) {
+          if (currentHours > expectedHours * 1.05) {
+            // Se estiver 5% acima do esperado
+            const percentageAbove = (currentHours / expectedHours - 1) * 100;
+            const topContributor = [...aggregatedData].sort(
+              ([, a], [, b]) =>
+                timeStringToSeconds(b["Horas Faladas"]) -
+                timeStringToSeconds(a["Horas Faladas"])
+            )[0];
+            allInsights.push(
+              <InsightCard
+                icon={<TrendingUp />}
+                colorClass="text-dashboard-success"
+                title="Destaque Positivo"
+                key="positive"
+              >
+                Parabéns! A equipe está{" "}
+                <strong className="text-dashboard-success">
+                  {percentageAbove.toFixed(0)}%
+                </strong>{" "}
+                à frente da meta proporcional de horas. O colaborador{" "}
+                <strong className="text-dashboard-success">
+                  {topContributor[0]}
+                </strong>{" "}
+                é o maior contribuinte.
+              </InsightCard>
+            );
+          }
         }
       }
     }
