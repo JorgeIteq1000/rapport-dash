@@ -135,8 +135,7 @@ export const JarvisInsights = ({
           "LOG (Insights): Iniciando busca de metas via CSV Publicado..."
         );
 
-        // --- ⚠️ ATENÇÃO: SUBSTITUA PELO NOVO LINK DA ABA "METAS" ---
-        // O link abaixo é o mesmo de Dados e causará erro. Gere um novo para a aba Metas.
+        // --- LINK DA ABA "METAS" ATUALIZADO ---
         const csvUrl =
           "https://docs.google.com/spreadsheets/d/e/2PACX-1vRvxijQtAooNRrWzlYi5rmXeSLBDQfcN27Iud4WvFu5_k4XzxYFabSKp1zWC_couTJ14kjdl0eF0j4T/pub?gid=654225695&single=true&output=csv";
 
